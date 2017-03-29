@@ -97,7 +97,6 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization with 
       case _ => deserializationError("Expected Value")
     }
   }
-
 }
 
 trait EntitySerialization extends DefaultJsonProtocol {
@@ -106,10 +105,24 @@ trait EntitySerialization extends DefaultJsonProtocol {
   implicit val embeddedEntityFormatter = jsonFormat1(EmbeddedEntity.apply)
 }
 
+trait EntityResultSerialization extends EntitySerialization {
+  implicit object EntityResultFormat extends RootJsonFormat[EntityResult] {
+    def write(c: EntityResult) = {
+      JsObject("entity" -> c.entity.toJson, "version" -> JsString(c.version.toString), "cursor" -> JsString(new String(c.cursor)))
+    }
+
+    def read(value: JsValue) = value match {
+      case JsObject(fields) =>
+        EntityResult(fields("entity").convertTo[Entity], fields("version").convertTo[String].toLong, fields("cursor").convertTo[String].getBytes) // TODO: think of more performant deserialization
+      case _ => deserializationError("Expected EntityResult")
+    }
+  }
+}
 
 object Serialization
   extends KeySerialization
     with PartitionIdSerialization
     with PathElementSerialization
     with ValueSerialization
-    with EntitySerialization {}
+    with EntitySerialization
+    with EntityResultSerialization {}
