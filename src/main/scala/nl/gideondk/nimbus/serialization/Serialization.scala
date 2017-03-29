@@ -12,6 +12,7 @@ trait PartitionIdSerialization extends DefaultJsonProtocol {
 }
 
 trait PathElementSerialization {
+
   implicit object PathElementJsonFormat extends RootJsonFormat[PathElement] {
     def write(c: PathElement) = {
       val idType = c.id match {
@@ -29,6 +30,7 @@ trait PathElementSerialization {
       case _ => deserializationError("Expected PathElement")
     }
   }
+
 }
 
 
@@ -95,6 +97,7 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization with 
       case _ => deserializationError("Expected Value")
     }
   }
+
 }
 
 trait EntitySerialization extends DefaultJsonProtocol {

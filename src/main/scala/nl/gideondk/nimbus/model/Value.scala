@@ -1,7 +1,5 @@
 package nl.gideondk.nimbus.model
 
-import spray.json._
-
 sealed trait ValueType
 
 final case object NullValue extends ValueType
