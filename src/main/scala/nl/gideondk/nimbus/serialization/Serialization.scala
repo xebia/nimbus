@@ -60,7 +60,7 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
     fields.keySet.find(x => x.contains("Value")) match { // TODO: fix this monstrosity
       case Some(NullValueKey) => NullValue
       case Some(BooleanValueKey) => BooleanValue(fields(BooleanValueKey).convertTo[Boolean])
-      case Some(IntegerValueKey) => IntegerValue(fields(BooleanValueKey).convertTo[Long])
+      case Some(IntegerValueKey) => IntegerValue(fields(IntegerValueKey).convertTo[String].toLong)
       case Some(TimestampValueKey) => TimestampValue(fields(TimestampValueKey).convertTo[String])
       case Some(KeyValueKey) => KeyValue(fields(KeyValueKey).convertTo[Key])
       case Some(StringValueKey) => StringValue(fields(StringValueKey).convertTo[String])
@@ -73,12 +73,17 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
 
   implicit object ValueJsonFormat extends RootJsonFormat[Value] {
     def write(c: Value) = {
-      JsObject("meaning" -> JsNumber(c.meaning), "excludeFromIndexes" -> JsBoolean(c.excludeFromIndexes), valueTypeToJsTuple(c.value))
+      val m =
+        c.meaning.map(x => Map("meaning" -> JsNumber(x))).getOrElse(Map.empty) ++
+          c.excludeFromIndexes.map(x => Map("excludeFromIndexes" -> JsBoolean(x))).getOrElse(Map.empty) +
+          valueTypeToJsTuple(c.value)
+
+      JsObject(m)
     }
 
     def read(value: JsValue) = value match {
       case JsObject(fields) =>
-        Value(fields("meaning").convertTo[Int], fields("excludeFromIndexes").convertTo[Boolean], valueTypeFromJsFields(fields))
+        Value(fields.get("meaning").map(_.convertTo[Int]), fields.get("excludeFromIndexes").map(_.convertTo[Boolean]), valueTypeFromJsFields(fields))
       case _ => deserializationError("Expected Value")
     }
   }
@@ -95,7 +100,8 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
     }
   }
 
-  implicit val entityFormatter = jsonFormat2(Entity.apply)
+
+  implicit val entityFormatter = jsonFormat2[Key, Option[Map[String,Value]], Entity](Entity.apply)
 
   implicit val embeddedEntityFormatter = jsonFormat1(EmbeddedEntity.apply)
 }

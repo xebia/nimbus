@@ -24,7 +24,11 @@ final case class EntityValue(value: EmbeddedEntity) extends ValueType
 
 final case class ArrayValue(value: Seq[EmbeddedValue]) extends ValueType
 
-final case class Value(meaning: Int, excludeFromIndexes: Boolean, value: ValueType)
+final case class Value(meaning: Option[Int], excludeFromIndexes: Option[Boolean], value: ValueType)
+
+object Value {
+  def apply(value: ValueType): Value = Value(None, None, value)
+}
 
 final case class EmbeddedValue(value: ValueType)
 
