@@ -1,13 +1,10 @@
 package nl.gideondk.nimbus.api
 
-import akka.http.javadsl.model.ResponseEntity
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, Uri}
-import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import nl.gideondk.nimbus.Connection
-import nl.gideondk.nimbus.Connection.{DataStoreException, ErrorResponse}
 import nl.gideondk.nimbus.model.Key
 import spray.json.DefaultJsonProtocol
 
@@ -29,7 +26,7 @@ trait AllocateIdsApi extends Connection with DefaultJsonProtocol {
     for {
       request <- Marshal(HttpMethods.POST, uri, AllocateIdsRequest(keys)).to[HttpRequest]
       response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
-      entity <- Connection.handleErrorOrUnmarshal[AllocateIdsResponse](response)
+      entity <- handleErrorOrUnmarshal[AllocateIdsResponse](response)
     } yield {
       entity.keys
     }

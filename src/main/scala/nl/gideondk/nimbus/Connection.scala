@@ -1,8 +1,9 @@
 package nl.gideondk.nimbus
 
 import akka.actor.ActorSystem
-import akka.http.javadsl.model.ResponseEntity
+import akka.http.scaladsl.model.ResponseEntity
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -33,18 +34,6 @@ object Connection extends DefaultJsonProtocol {
 
   final case class DataStoreException(error: Error) extends Exception(error.message)
 
-  def handleErrorOrUnmarshal[A](response: HttpResponse)(implicit um: Unmarshaller[ResponseEntity, A]) = {
-    (if (response.status.isSuccess()) {
-      Unmarshal(response.entity).to[A].map(Right.apply)
-    } else {
-      Unmarshal(response.entity).to[ErrorResponse].map(Left.apply)
-    }).map(x =>
-      x match {
-        case Left(errorResponse) => throw new DataStoreException(errorResponse.error)
-        case Right(response) => response
-      }
-    )
-  }
 
 }
 
@@ -106,5 +95,18 @@ trait Connection extends ConnectionSettings {
         case QueueOfferResult.Enqueued ⇒ context.future
       }
     }
+  }
+
+  def handleErrorOrUnmarshal[A](response: HttpResponse)(implicit um: Unmarshaller[ResponseEntity, A]) = {
+    (if (response.status.isSuccess()) {
+      Unmarshal(response.entity).to[A].map(Right.apply)
+    } else {
+      Unmarshal(response.entity).to[ErrorResponse].map(Left.apply)
+    }).map(x =>
+      x match {
+        case Left(errorResponse) => throw new DataStoreException(errorResponse.error)
+        case Right(response) => response
+      }
+    )
   }
 }

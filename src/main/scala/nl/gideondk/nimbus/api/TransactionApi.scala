@@ -20,7 +20,7 @@ trait TransactionApi extends Connection with DefaultJsonProtocol {
     val request = HttpRequest.apply(HttpMethods.POST, uri)
     for {
       response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
-      transactionResponse <- Connection.handleErrorOrUnmarshal[BeginTransactionResponse](response)
+      transactionResponse <- handleErrorOrUnmarshal[BeginTransactionResponse](response)
     } yield transactionResponse.transaction
   }
 }
