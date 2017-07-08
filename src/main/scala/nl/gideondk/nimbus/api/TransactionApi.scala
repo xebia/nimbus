@@ -1,6 +1,6 @@
 package nl.gideondk.nimbus.api
 
-import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import akka.http.scaladsl.unmarshalling.Unmarshal
@@ -20,7 +20,7 @@ trait TransactionApi extends Connection with DefaultJsonProtocol {
     val request = HttpRequest.apply(HttpMethods.POST, uri)
     for {
       response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
-      transactionResponse <- Unmarshal(response.entity).to[BeginTransactionResponse]
+      transactionResponse <- Connection.handleErrorOrUnmarshal[BeginTransactionResponse](response)
     } yield transactionResponse.transaction
   }
 }

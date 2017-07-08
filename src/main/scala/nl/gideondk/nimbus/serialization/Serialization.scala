@@ -3,38 +3,35 @@ package nl.gideondk.nimbus.serialization
 import nl.gideondk.nimbus.model._
 import spray.json.{DefaultJsonProtocol, _}
 
+import scala.language.implicitConversions
+
 trait KeySerialization extends DefaultJsonProtocol {
-  implicit val keyFormatter = jsonFormat2(Key.apply)
-}
-
-trait PartitionIdSerialization extends DefaultJsonProtocol {
-  implicit val partitionIdFormatter = jsonFormat2(PartitionId.apply)
-}
-
-trait PathElementSerialization {
 
   implicit object PathElementJsonFormat extends RootJsonFormat[PathElement] {
     def write(c: PathElement) = {
-      val idType = c.id match {
-        case PathElementId(value) => "id" -> JsString(value.toString)
-        case PathElementName(value) => "name" -> JsString(value)
+      c.id match {
+        case Some(PathElementId(value)) => JsObject("kind" -> JsString(c.kind), "id" -> JsString(value.toString))
+        case Some(PathElementName(value)) => JsObject("kind" -> JsString(c.kind), "name" -> JsString(value))
+        case None => JsObject("kind" -> JsString(c.kind))
       }
-      JsObject("kind" -> JsString(c.kind), idType)
     }
 
     def read(value: JsValue) = value match {
-      case JsObject(fields) if (fields.isDefinedAt("id")) =>
-        PathElement(fields("kind").convertTo[String], PathElementId(fields("id").convertTo[String].toLong))
-      case JsObject(fields) if (fields.isDefinedAt("name")) =>
-        PathElement(fields("kind").convertTo[String], PathElementName(fields("name").convertTo[String]))
+      case JsObject(fields) if fields.isDefinedAt("id") =>
+        PathElement(fields("kind").convertTo[String], Some(PathElementId(fields("id").convertTo[String].toLong)))
+      case JsObject(fields) if fields.isDefinedAt("name") =>
+        PathElement(fields("kind").convertTo[String], Some(PathElementName(fields("name").convertTo[String])))
+      case JsObject(fields) => PathElement(fields("kind").convertTo[String], None)
       case _ => deserializationError("Expected PathElement")
     }
   }
 
+  implicit val partitionIdFormatter = jsonFormat2(PartitionId.apply)
+  implicit val keyFormatter = jsonFormat2(Key.apply)
 }
 
 
-trait ValueSerialization extends DefaultJsonProtocol with KeySerialization with EntitySerialization {
+trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
   val NullValueKey = "nullValue"
   val BooleanValueKey = "booleanValue"
   val IntegerValueKey = "integerValue"
@@ -46,28 +43,28 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization with 
   val EntityValueKey = "entityValue"
   val ArrayValueKey = "arrayValue"
 
-  def valueTypeToJsTuple(t: ValueType) = t match {
-    case NullValue => (NullValueKey -> JsNull)
-    case BooleanValue(v) => (BooleanValueKey -> JsBoolean(v))
-    case IntegerValue(v) => (IntegerValueKey -> JsString(v.toString)) // TODO: check if this flat conversion works
-    case TimestampValue(v) => (TimestampValueKey -> JsString(v))
-    case KeyValue(v) => (KeyValueKey -> v.toJson)
-    case StringValue(v) => (StringValueKey -> JsString(v))
-    case BlobValue(v) => (BlobValueKey -> JsString(new String(v)))
+  def valueTypeToJsTuple(t: ValueType): (String, JsValue) = t match {
+    case NullValue => NullValueKey -> JsNull
+    case BooleanValue(v) => BooleanValueKey -> JsBoolean(v)
+    case IntegerValue(v) => IntegerValueKey -> JsString(v.toString) // TODO: check if this flat conversion works
+    case TimestampValue(v) => TimestampValueKey -> JsString(v)
+    case KeyValue(v) => KeyValueKey -> v.toJson
+    case StringValue(v) => StringValueKey -> JsString(v)
+    case BlobValue(v) => BlobValueKey -> JsString(new String(v))
     case GeoPointValue(v) => ???
-    case EntityValue(v) => (EntityValueKey -> v.toJson)
-    case ArrayValue(v) => (ArrayValueKey -> v.toJson)
+    case EntityValue(v) => EntityValueKey -> v.toJson
+    case ArrayValue(v) => ArrayValueKey -> v.toJson
   }
 
-  def valueTypeFromJsFields(fields: Map[String, JsValue]) = {
-    fields.keySet.filter(x => x.contains("Value")).headOption match { // TODO: fix this monstrosity
+  def valueTypeFromJsFields(fields: Map[String, JsValue]): ValueType = {
+    fields.keySet.find(x => x.contains("Value")) match { // TODO: fix this monstrosity
       case Some(NullValueKey) => NullValue
       case Some(BooleanValueKey) => BooleanValue(fields(BooleanValueKey).convertTo[Boolean])
       case Some(IntegerValueKey) => IntegerValue(fields(BooleanValueKey).convertTo[Long])
       case Some(TimestampValueKey) => TimestampValue(fields(TimestampValueKey).convertTo[String])
       case Some(KeyValueKey) => KeyValue(fields(KeyValueKey).convertTo[Key])
       case Some(StringValueKey) => StringValue(fields(StringValueKey).convertTo[String])
-      case Some(BlobValueKey) => BlobValue(fields(BlobValueKey).convertTo[String].toArray)
+      case Some(BlobValueKey) => BlobValue(fields(BlobValueKey).convertTo[String].getBytes)
       case Some(GeoPointValueKey) => ???
       case Some(EntityValueKey) => EntityValue(fields(EntityValueKey).convertTo[EmbeddedEntity])
       case Some(ArrayValueKey) => ArrayValue(fields(ArrayValueKey).convertTo[JsArray].elements.map(x => x.convertTo[EmbeddedValue]))
@@ -97,15 +94,14 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization with 
       case _ => deserializationError("Expected Value")
     }
   }
-}
 
-trait EntitySerialization extends DefaultJsonProtocol {
   implicit val entityFormatter = jsonFormat2(Entity.apply)
 
   implicit val embeddedEntityFormatter = jsonFormat1(EmbeddedEntity.apply)
 }
 
-trait EntityResultSerialization extends EntitySerialization {
+trait EntityResultSerialization extends ValueSerialization {
+
   implicit object EntityResultFormat extends RootJsonFormat[EntityResult] {
     def write(c: EntityResult) = {
       JsObject("entity" -> c.entity.toJson, "version" -> JsString(c.version.toString), "cursor" -> JsString(new String(c.cursor)))
@@ -117,12 +113,10 @@ trait EntityResultSerialization extends EntitySerialization {
       case _ => deserializationError("Expected EntityResult")
     }
   }
+
 }
 
 object Serialization
   extends KeySerialization
-    with PartitionIdSerialization
-    with PathElementSerialization
     with ValueSerialization
-    with EntitySerialization
     with EntityResultSerialization {}

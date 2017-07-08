@@ -1,4 +1,4 @@
-package nl.gideondk.nimbus.api
+package nl.gideondk.nimbus
 
 import java.security.{PrivateKey, Signature}
 import java.time.Instant
@@ -9,12 +9,20 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
-import nl.gideondk.nimbus.Connection.{AccessToken, OAuthResponse}
-import nl.gideondk.nimbus.ConnectionSettings
+import nl.gideondk.nimbus.Connection.AccessToken
+import spray.json.DefaultJsonProtocol
+
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import DefaultJsonProtocol._
 
 import scala.concurrent.Future
 
-trait OAuthApi extends ConnectionSettings {
+object OAuth extends DefaultJsonProtocol {
+  val apiHost = "www.googleapis.com"
+  val googleAPIEndPoint = s"https://$apiHost"
+
+  final case class OAuthResponse(access_token: String, token_type: String, expires_in: Int)
+  implicit val oAuthResponseFormat = jsonFormat3(OAuthResponse.apply)
 
   def getAccessToken(email: String, privateKey: PrivateKey, when: Instant)(implicit as: ActorSystem, materializer: Materializer): Future[AccessToken] = {
     import materializer.executionContext
@@ -46,7 +54,7 @@ trait OAuthApi extends ConnectionSettings {
         s"""
            |{
            | "iss": "$clientEmail",
-           | "scope": "https://www.googleapis.com/auth/pubsub",
+           | "scope": "https://www.googleapis.com/auth/datastore",
            | "aud": "https://www.googleapis.com/oauth2/v4/token",
            | "exp": $expiresAt,
            | "iat": $currentTimeSecondsUTC
