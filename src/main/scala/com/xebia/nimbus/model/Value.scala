@@ -76,13 +76,43 @@ object Value {
 
   def apply(value: Array[Byte], excludeFromIndexes: Boolean): Value = Value(None, Some(excludeFromIndexes), BlobValue(value))
 
-  implicit def booleanToValue(v: Boolean) = apply(v)
-  implicit def longToValue(v: Long) = apply(v)
-  implicit def intToValue(v: Int) = apply(v.toLong)
-  implicit def doubleToValue(v: Double) = apply(v)
-  implicit def keyToValue(v: Key) = apply(v)
-  implicit def stringToValue(v: String) = apply(v)
-  implicit def byteArrayToValue(v: Array[Byte]) = apply(v)
+  implicit val booleanToValue = new ToValue[Boolean] {
+    def toValue(v: Boolean) = apply(v)
+  }
+
+  implicit val longToValue = new ToValue[Long] {
+    def toValue(v: Long) = apply(v)
+  }
+
+  implicit val intToValue = new ToValue[Int] {
+    def toValue(v: Int) = apply(v.toLong)
+  }
+
+  implicit val doubleToValue = new ToValue[Double] {
+    def toValue(v: Double) = apply(v)
+  }
+
+  implicit val keyToValue = new ToValue[Key] {
+    def toValue(v: Key) = apply(v)
+  }
+
+  implicit val stringToValue = new ToValue[String] {
+    def toValue(v: String) = apply(v)
+  }
+
+  implicit val baToValue = new ToValue[Array[Byte]] {
+    def toValue(v: Array[Byte]) = apply(v)
+  }
+
+  implicit val passthrough = new ToValue[Value] {
+    def toValue(v: Value) = v
+  }
+
+  implicit def toValue[A: ToValue](v: A) = implicitly[ToValue[A]].toValue(v)
+}
+
+trait ToValue[A] {
+  def toValue(v: A): Value
 }
 
 final case class EmbeddedValue(value: ValueType)

@@ -173,7 +173,6 @@ trait QueryApi extends Connection {
     for {
       request <- Marshal(QueryRequest(partitionId, readOption, query, glqQuery)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
       response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
-
       entity <- handleErrorOrUnmarshal[QueryResponse](response)
     } yield {
       entity
