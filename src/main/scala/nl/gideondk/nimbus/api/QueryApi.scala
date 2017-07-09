@@ -1,17 +1,40 @@
+/*
+ * Copyright (c) 2017 Xebia Nederland B.V.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 package nl.gideondk.nimbus.api
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
 import nl.gideondk.nimbus.Connection
+import nl.gideondk.nimbus.api.LookupApi.LookupRequest
 import nl.gideondk.nimbus.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
 import nl.gideondk.nimbus.api.QueryApi.GlqQueryParameter.{GlqCursorQueryParameter, GlqValueQueryParameter}
-import nl.gideondk.nimbus.api.QueryApi.{CompositeOperator, EntityResultType, Filter, GlqCursorQueryParameter, GlqQuery, GlqQueryParameter, GlqValueQueryParameter, KindExpression, MoreResultsType, OrderDirection, Projection, PropertyOperator, PropertyOrder, PropertyReference, Query, QueryRequest, QueryResponse, QueryResultBatch}
+import nl.gideondk.nimbus.api.QueryApi.{CompositeOperator, EntityResultType, Filter, GlqQuery, GlqQueryParameter, KindExpression, MoreResultsType, OrderDirection, Projection, PropertyOperator, PropertyOrder, PropertyReference, Query, QueryRequest, QueryResponse, QueryResultBatch}
 import nl.gideondk.nimbus.model._
 import nl.gideondk.nimbus.serialization.NimbusSerialization
 import spray.json.{JsArray, JsObject, JsString, RootJsonFormat, _}
 
+import scala.language.implicitConversions
 import scala.concurrent.Future
 
 trait QueryApiConversions {
@@ -35,7 +58,7 @@ trait QueryApiFormatters extends NimbusSerialization {
   implicit object GlqQueryJsonFormat extends RootJsonFormat[GlqQueryParameter] {
     def write(c: GlqQueryParameter) = {
       c match {
-        case GlqValueQueryParameter(value) => JsObject("value" -> value.toJson)
+        case GlqValueQueryParameter(value)   => JsObject("value" -> value.toJson)
         case GlqCursorQueryParameter(cursor) => JsObject("cursor" -> JsString(cursor))
       }
     }
@@ -121,7 +144,7 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
 
   case class PropertyOrder(property: PropertyReference, direction: OrderDirection.Value)
 
-  case class Query(property: Option[Seq[PropertyReference]], kind: Option[Seq[KindExpression]], filter: Option[Filter], order: Option[Seq[PropertyOrder]], distinctOn: Option[Seq[PropertyReference]], startCursor: Option[String], endCursor: Option[String], offset: Option[Int], limit: Option[Int])
+  case class Query(projection: Option[Seq[Projection]], kind: Option[Seq[KindExpression]], filter: Option[Filter], order: Option[Seq[PropertyOrder]], distinctOn: Option[Seq[PropertyReference]], startCursor: Option[String], endCursor: Option[String], offset: Option[Int], limit: Option[Int])
 
   trait GlqQueryParameter
 
@@ -148,8 +171,9 @@ trait QueryApi extends Connection {
   private def query(partitionId: PartitionId, readOption: ReadOption, query: Option[Query], glqQuery: Option[GlqQuery]): Future[QueryResponse] = {
     val uri: Uri = baseUri + ":runQuery"
     for {
-      request <- Marshal(HttpMethods.POST, uri, QueryRequest(partitionId, readOption, query, glqQuery)).to[HttpRequest]
+      request <- Marshal(QueryRequest(partitionId, readOption, query, glqQuery)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
       response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+
       entity <- handleErrorOrUnmarshal[QueryResponse](response)
     } yield {
       entity
