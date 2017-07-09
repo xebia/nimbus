@@ -32,7 +32,7 @@ trait LookupApi extends Connection {
 
   import LookupApi._
 
-  private def lookup(readOption: ReadOption, keys: Seq[Key]): Future[LookupResponse] = {
+  def lookup(readOption: ReadOption, keys: Seq[Key]): Future[LookupResponse] = {
     val uri: Uri = baseUri + ":lookup"
     for {
       request <- Marshal(HttpMethods.POST, uri, LookupRequest(readOption, keys)).to[HttpRequest]
@@ -42,13 +42,4 @@ trait LookupApi extends Connection {
       entity
     }
   }
-
-  def lookupWithinTransaction(transactionId: String, keys: Seq[Key]): Future[LookupResponse] =
-    lookup(TransactionConsistency(transactionId), keys)
-
-  def lookupWithEventualConsistency(keys: Seq[Key]): Future[LookupResponse] =
-    lookup(ExplicitConsistency(ReadConsistency.Eventual), keys)
-
-  def lookupWithStrongConsistency(keys: Seq[Key]): Future[LookupResponse] =
-    lookup(ExplicitConsistency(ReadConsistency.Strong), keys)
 }

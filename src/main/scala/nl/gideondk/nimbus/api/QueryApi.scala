@@ -5,6 +5,8 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import nl.gideondk.nimbus.Connection
+import nl.gideondk.nimbus.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
+import nl.gideondk.nimbus.api.QueryApi.GlqQueryParameter.{GlqCursorQueryParameter, GlqValueQueryParameter}
 import nl.gideondk.nimbus.api.QueryApi.{CompositeOperator, EntityResultType, Filter, GlqCursorQueryParameter, GlqQuery, GlqQueryParameter, GlqValueQueryParameter, KindExpression, MoreResultsType, OrderDirection, Projection, PropertyOperator, PropertyOrder, PropertyReference, Query, QueryRequest, QueryResponse, QueryResultBatch}
 import nl.gideondk.nimbus.model._
 import nl.gideondk.nimbus.serialization.NimbusSerialization
@@ -117,16 +119,17 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
 
   case class Projection(property: PropertyReference)
 
-
   case class PropertyOrder(property: PropertyReference, direction: OrderDirection.Value)
 
   case class Query(property: Option[Seq[PropertyReference]], kind: Option[Seq[KindExpression]], filter: Option[Filter], order: Option[Seq[PropertyOrder]], distinctOn: Option[Seq[PropertyReference]], startCursor: Option[String], endCursor: Option[String], offset: Option[Int], limit: Option[Int])
 
   trait GlqQueryParameter
 
-  case class GlqValueQueryParameter(value: Value) extends GlqQueryParameter
+  object GlqQueryParameter {
+    case class GlqValueQueryParameter(value: Value) extends GlqQueryParameter
 
-  case class GlqCursorQueryParameter(cursor: String) extends GlqQueryParameter
+    case class GlqCursorQueryParameter(cursor: String) extends GlqQueryParameter
+  }
 
   case class GlqQuery(queryString: String, allowLiterals: Boolean, nameBindings: Map[String, GlqQueryParameter], positionalBindings: Seq[GlqQueryParameter])
 

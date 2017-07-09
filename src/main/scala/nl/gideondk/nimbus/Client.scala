@@ -1,15 +1,19 @@
 package nl.gideondk.nimbus
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.settings.ConnectionPoolSettings
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import nl.gideondk.nimbus.Connection.AccessToken
-import nl.gideondk.nimbus.api.TransactionApi
+import nl.gideondk.nimbus.api._
 
 class Client(val accessToken: AccessToken,
              val projectId: String,
              val overflowStrategy: OverflowStrategy,
-             val maximumInFlight: Int)(implicit val system: ActorSystem) extends Connection with TransactionApi {
+             val maximumInFlight: Int)(implicit val system: ActorSystem)
+  extends Connection with TransactionApi
+    with AllocateIdsApi
+    with CommitApi
+    with LookupApi
+    with QueryApi {
 
   implicit val mat = ActorMaterializer()
   val apiHost = "www.googleapis.com"

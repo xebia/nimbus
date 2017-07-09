@@ -1,5 +1,6 @@
 package nl.gideondk.nimbus
 
+import nl.gideondk.nimbus.api.CommitApi.CommitMode
 import nl.gideondk.nimbus.model._
 
 class CommitSpec extends NimbusSpec {
@@ -15,7 +16,7 @@ class CommitSpec extends NimbusSpec {
       val mutations = entities.map(Insert.apply)
 
       recoverToSucceededIf[Exception] {
-        client.commitTransactional("ABC", mutations)
+        client.commit(Some("ABC"), mutations, CommitMode.Transactional)
       }
     }
 
@@ -29,7 +30,7 @@ class CommitSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        action <- client.commitTransactional(transactionId, mutations)
+        action <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
       } yield {
         action.mutationResults.length shouldBe 2
         action.mutationResults.find(x => x.key.isDefined).isDefined shouldBe false
@@ -46,7 +47,7 @@ class CommitSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        action <- client.commitTransactional(transactionId, mutations)
+        action <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
       } yield {
         action.mutationResults.length shouldBe 2
         action.mutationResults.find(x => x.key.isDefined).isDefined shouldBe true
@@ -63,9 +64,9 @@ class CommitSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        insert <- client.commitTransactional(transactionId, insertMutations)
+        insert <- client.commit(Some(transactionId), insertMutations, CommitMode.Transactional)
         transactionId <- client.beginTransaction()
-        delete <- client.commitTransactional(transactionId, deleteMutations)
+        delete <- client.commit(Some(transactionId), deleteMutations, CommitMode.Transactional)
       } yield {
         insert.mutationResults.length shouldBe 1
         delete.mutationResults.length shouldBe 1
@@ -81,7 +82,7 @@ class CommitSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        delete <- client.commitTransactional(transactionId, deleteMutations)
+        delete <- client.commit(Some(transactionId), deleteMutations, CommitMode.Transactional)
       } yield {
         delete.indexUpdates shouldBe None
       }

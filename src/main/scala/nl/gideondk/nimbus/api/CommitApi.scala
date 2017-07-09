@@ -27,7 +27,7 @@ object CommitApi extends NimbusSerialization {
         }
       }
 
-      JsObject("mode" -> JsString(c.mode.toString), "mutations" -> JsArray(mutationsAsJson.toVector), "transaction" -> JsString(c.transactionId))
+      JsObject(Map("mode" -> JsString(c.mode.toString), "mutations" -> JsArray(mutationsAsJson.toVector), "transaction" -> c.transactionId.map(x => JsString(x)).getOrElse(JsNull)).filter(x => x._2 != JsNull))
     }
   }
 
@@ -39,7 +39,7 @@ object CommitApi extends NimbusSerialization {
 
   case class MutationResult(key: Option[Key], version: String, conflictDetected: Option[Boolean])
 
-  case class CommitRequest(mode: CommitMode.Value, mutations: Seq[Mutation], transactionId: String)
+  case class CommitRequest(mode: CommitMode.Value, mutations: Seq[Mutation], transactionId: Option[String])
 
   case class CommitResponse(mutationResults: Seq[MutationResult], indexUpdates: Option[Int])
 
@@ -49,7 +49,7 @@ trait CommitApi extends Connection {
 
   import CommitApi._
 
-  private def commit(transactionId: String, mutations: Seq[Mutation], commitMode: CommitMode.Value): Future[CommitResponse] = {
+  def commit(transactionId: Option[String], mutations: Seq[Mutation], commitMode: CommitMode.Value): Future[CommitResponse] = {
     val uri: Uri = baseUri + ":commit"
     for {
       request <- Marshal(HttpMethods.POST, uri, CommitRequest(commitMode, mutations, transactionId)).to[HttpRequest]
@@ -58,13 +58,5 @@ trait CommitApi extends Connection {
     } yield {
       entity
     }
-  }
-
-  def commitTransactional(transactionId: String, mutations: Seq[Mutation]) = {
-    commit(transactionId, mutations, CommitMode.Transactional)
-  }
-
-  def commitNonTransactional(transactionId: String, mutations: Seq[Mutation]) = {
-    commit(transactionId, mutations, CommitMode.NonTransactional)
   }
 }

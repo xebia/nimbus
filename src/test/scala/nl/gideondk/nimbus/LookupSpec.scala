@@ -1,5 +1,6 @@
 package nl.gideondk.nimbus
 
+import nl.gideondk.nimbus.api.CommitApi.CommitMode
 import nl.gideondk.nimbus.model._
 
 class LookupSpec extends NimbusSpec {
@@ -17,8 +18,8 @@ class LookupSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        _ <- client.commitTransactional(transactionId, mutations)
-        lookup <- client.lookupWithStrongConsistency(keys)
+        _ <- client.commit(transactionId, mutations, CommitMode.Transactional)
+        lookup <- client.lookup(ExplicitConsistency(ReadConsistency.Strong), keys)
       } yield {
         lookup.found.get.map(_.entity) shouldEqual entities
         lookup.missing shouldBe None
@@ -37,8 +38,8 @@ class LookupSpec extends NimbusSpec {
 
       for {
         transactionId <- client.beginTransaction()
-        _ <- client.commitTransactional(transactionId, mutations)
-        lookup <- client.lookupWithStrongConsistency(keys)
+        _ <- client.commit(transactionId, mutations, CommitMode.Transactional)
+        lookup <- client.lookup(ExplicitConsistency(ReadConsistency.Strong), keys)
       } yield {
         lookup.found.get.map(_.entity).apply(0) shouldEqual entities(0)
         lookup.missing.get.map(_.entity.key).apply(0) shouldEqual entities(1).key

@@ -1,5 +1,7 @@
 package nl.gideondk.nimbus
 
+import nl.gideondk.nimbus.api.CommitApi.CommitMode
+import nl.gideondk.nimbus.api.QueryApi.Filter.PropertyFilter
 import nl.gideondk.nimbus.api.QueryApi._
 import nl.gideondk.nimbus.model.Value._
 import nl.gideondk.nimbus.model._
@@ -20,7 +22,7 @@ class QuerySpec extends NimbusSpec {
       val query = Query(None, Some(Seq("Pet")), Some(PropertyFilter("color", PropertyOperator.Equal, "Brown")), None, None, None, None, None, None)
       for {
         transactionId <- client.beginTransaction()
-        _ <- client.commitTransactional(transactionId, mutations)
+        _ <- client.commit(transactionId, mutations, CommitMode.Transactional)
         query <- client.query(PartitionId(client.projectId), ExplicitConsistency(ReadConsistency.Strong), query)
       } yield {
         val entityResults = query.batch.entityResults.get
