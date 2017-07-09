@@ -19,7 +19,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.model
+package com.xebia.nimbus.datastore.model
 
 import scala.language.implicitConversions
 

@@ -19,32 +19,32 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.model
+package com.xebia.nimbus.datastore.model
 
 trait Mutation
 
 trait ContentMutation extends Mutation {
-  def entity: Entity
+  def entity: RawEntity
 
   def baseVersion: Option[String]
 }
 
-case class Insert(entity: Entity, baseVersion: Option[String]) extends ContentMutation
+case class Insert(entity: RawEntity, baseVersion: Option[String]) extends ContentMutation
 
 object Insert {
-  def apply(entity: Entity): Insert = Insert(entity, None)
+  def apply(entity: RawEntity): Insert = Insert(entity, None)
 }
 
-case class Update(entity: Entity, baseVersion: Option[String]) extends ContentMutation
+case class Update(entity: RawEntity, baseVersion: Option[String]) extends ContentMutation
 
 object Update {
-  def apply(entity: Entity): Update = Update(entity, None)
+  def apply(entity: RawEntity): Update = Update(entity, None)
 }
 
-case class Upsert(entity: Entity, baseVersion: Option[String]) extends ContentMutation
+case class Upsert(entity: RawEntity, baseVersion: Option[String]) extends ContentMutation
 
 object Upsert {
-  def apply(entity: Entity): Upsert = Upsert(entity, None)
+  def apply(entity: RawEntity): Upsert = Upsert(entity, None)
 }
 
 case class Delete(key: Key) extends Mutation

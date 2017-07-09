@@ -19,14 +19,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.serialization
+package com.xebia.nimbus.datastore.serialization
 
-import com.xebia.nimbus.model._
-import spray.json.{ DefaultJsonProtocol, _ }
+import com.xebia.nimbus.datastore.model._
+import spray.json.{DefaultJsonProtocol, _}
 
 import scala.language.implicitConversions
 
-trait KeySerialization extends DefaultJsonProtocol {
+trait KeySerializers extends DefaultJsonProtocol {
 
   implicit object PathElementJsonFormat extends RootJsonFormat[PathElement] {
     def write(c: PathElement) = {
@@ -51,7 +51,7 @@ trait KeySerialization extends DefaultJsonProtocol {
   implicit val keyFormatter = jsonFormat2(Key.apply)
 }
 
-trait ValueSerialization extends DefaultJsonProtocol with KeySerialization {
+trait ValueSerializers extends DefaultJsonProtocol with KeySerializers {
   val NullValueKey = "nullValue"
   val BooleanValueKey = "booleanValue"
   val IntegerValueKey = "integerValue"
@@ -120,12 +120,12 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization {
     }
   }
 
-  implicit val entityFormatter = jsonFormat2[Key, Option[Map[String, Value]], Entity](Entity.apply)
+  implicit val entityFormatter = jsonFormat2[Key, Option[Map[String, Value]], RawEntity](RawEntity.apply)
 
   implicit val embeddedEntityFormatter = jsonFormat1(EmbeddedEntity.apply)
 }
 
-trait EntityResultSerialization extends ValueSerialization {
+trait EntityResultSerializers extends ValueSerializers {
 
   implicit object EntityResultFormat extends RootJsonFormat[EntityResult] {
     def write(c: EntityResult) = {
@@ -134,14 +134,14 @@ trait EntityResultSerialization extends ValueSerialization {
 
     def read(value: JsValue) = value match {
       case JsObject(fields) =>
-        EntityResult(fields("entity").convertTo[Entity], fields("version").convertTo[String].toLong, fields("cursor").convertTo[String].getBytes) // TODO: think of more performant deserialization
+        EntityResult(fields("entity").convertTo[RawEntity], fields("version").convertTo[String].toLong, fields("cursor").convertTo[String].getBytes) // TODO: think of more performant deserialization
       case _ => deserializationError("Expected EntityResult")
     }
   }
 
 }
 
-trait ReadOptionSerialization extends DefaultJsonProtocol {
+trait ReadOptionSerializer extends DefaultJsonProtocol {
 
   implicit object ReadOptionJsonFormat extends RootJsonFormat[ReadOption] {
     def write(c: ReadOption) = {
@@ -156,11 +156,11 @@ trait ReadOptionSerialization extends DefaultJsonProtocol {
 
 }
 
-trait NimbusSerialization
-  extends KeySerialization
-  with ValueSerialization
-  with EntityResultSerialization
-  with ReadOptionSerialization {
+trait Serializers
+  extends KeySerializers
+  with ValueSerializers
+  with EntityResultSerializers
+  with ReadOptionSerializer {
 
   class EnumJsonConverter[T <: scala.Enumeration](enum: T) extends RootJsonFormat[T#Value] {
     override def write(obj: T#Value): JsValue = JsString(obj.toString)

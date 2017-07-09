@@ -19,17 +19,36 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.model
+package com.xebia.nimbus
 
-import spray.json.{ JsObject, JsString, JsValue, RootJsonFormat }
+import akka.actor.ActorSystem
+import akka.stream.{ActorMaterializer, OverflowStrategy}
+import com.xebia.nimbus.Connection.AccessToken
+import com.xebia.nimbus.datastore.api._
+import com.xebia.nimbus.datastore_api._
 
-trait ReadOption
+class RawClient(
+  val accessToken:      AccessToken,
+  val projectId:        String,
+  val overflowStrategy: OverflowStrategy,
+  val maximumInFlight:  Int
+)(implicit val system: ActorSystem)
+  extends Connection with TransactionApi
+  with AllocateIdsApi
+  with CommitApi
+  with LookupApi
+  with QueryApi {
 
-object ReadConsistency extends Enumeration {
-  val Strong = Value("STRONG")
-  val Eventual = Value("EVENTUAL")
+  implicit val mat = ActorMaterializer()
+  val apiHost = "www.googleapis.com"
+  val apiPort = 443
+  val datastoreAPIEndPoint = s"https://$apiHost/auth/datastore"
+  val googleAPIEndPoint = s"https://$apiHost"
 }
 
-case class TransactionConsistency(transaction: String) extends ReadOption
+object RawClient {
+  def apply(accessToken: AccessToken, projectId: String)(implicit system: ActorSystem) = {
+    new RawClient(accessToken, projectId, OverflowStrategy.dropNew, 1024)
+  }
+}
 
-case class ExplicitConsistency(readConsistency: ReadConsistency.Value) extends ReadOption

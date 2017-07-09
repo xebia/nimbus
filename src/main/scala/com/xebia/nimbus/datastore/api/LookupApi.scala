@@ -19,21 +19,20 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.api
+package com.xebia.nimbus.datastore.api
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
 import com.xebia.nimbus.Connection
-import com.xebia.nimbus.api.AllocateIdsApi.AllocateIdsRequest
-import com.xebia.nimbus.api.CommitApi.CommitRequest
-import com.xebia.nimbus.model._
-import com.xebia.nimbus.serialization.NimbusSerialization
+import com.xebia.nimbus.datastore.model.{Key, RawEntity, ReadOption}
+import com.xebia.nimbus.datastore.serialization.Serializers
+import com.xebia.nimbus.datastore_model._
 
 import scala.concurrent.Future
 
-object LookupApi extends NimbusSerialization {
+object LookupApi extends Serializers {
 
   implicit val lookupRequestFormat = jsonFormat2(LookupRequest.apply)
 
@@ -43,7 +42,7 @@ object LookupApi extends NimbusSerialization {
 
   case class LookupRequest(readOptions: ReadOption, keys: Seq[Key])
 
-  case class EntityResult(entity: Entity, version: String, cursor: Option[String])
+  case class EntityResult(entity: RawEntity, version: String, cursor: Option[String])
 
   case class LookupResponse(found: Option[Seq[EntityResult]], missing: Option[Seq[EntityResult]], deferred: Option[Seq[Key]])
 

@@ -1,4 +1,4 @@
-package com.xebia.nimbus
+package com.xebia.nimbus.datastore.api
 
 import java.security.{PrivateKey, Signature}
 import java.time.Instant
@@ -6,12 +6,12 @@ import java.util.Base64
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import com.xebia.nimbus.Connection.AccessToken
 import spray.json.DefaultJsonProtocol
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 
 import scala.concurrent.Future
 

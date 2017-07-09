@@ -24,10 +24,10 @@ package com.xebia.nimbus
 import akka.actor.ActorSystem
 import org.scalatest._
 
-trait NimbusSpec extends AsyncWordSpec with Matchers with BeforeAndAfter {
+trait WithClientSpec extends AsyncWordSpec with Matchers with BeforeAndAfter {
   val projectId = "nimbus-test"
   implicit val system = ActorSystem()
 
-  val client = new TestClient(projectId)
+  val client = new TestRawClient(projectId)
 
 }

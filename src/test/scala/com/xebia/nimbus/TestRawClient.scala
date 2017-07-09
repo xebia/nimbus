@@ -19,32 +19,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.api
+package com.xebia.nimbus
 
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
-import com.xebia.nimbus.Connection
-import spray.json.DefaultJsonProtocol
+import akka.actor.ActorSystem
+import akka.stream.OverflowStrategy
+import com.xebia.nimbus.Connection.AccessToken
 
-import scala.concurrent.Future
-
-object TransactionApi extends DefaultJsonProtocol {
-  case class BeginTransactionResponse(transaction: String)
-
-  implicit val transactionResponseFormat = jsonFormat1(BeginTransactionResponse.apply)
-
-}
-
-trait TransactionApi extends Connection {
-  import TransactionApi._
-
-  def beginTransaction(): Future[String] = {
-    val uri: Uri = baseUri + ":beginTransaction"
-    val request = HttpRequest.apply(HttpMethods.POST, uri)
-    for {
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
-      transactionResponse <- handleErrorOrUnmarshal[BeginTransactionResponse](response)
-    } yield transactionResponse.transaction
-  }
+class TestRawClient(override val projectId: String, override val maximumInFlight: Int = 1024)(implicit val sys: ActorSystem) extends
+  RawClient(AccessToken("LOCAL", 0), projectId, OverflowStrategy.backpressure, maximumInFlight)(sys) {
+  override val apiHost = "localhost"
+  override val apiPort = 8080
+  override val datastoreAPIEndPoint = s"http://localhost:8080"
+  override val googleAPIEndPoint = s"http://localhost:8080"
 }

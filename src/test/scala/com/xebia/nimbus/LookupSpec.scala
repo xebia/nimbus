@@ -21,17 +21,18 @@
 
 package com.xebia.nimbus
 
-import com.xebia.nimbus.api.CommitApi.CommitMode
-import com.xebia.nimbus.model._
+import com.xebia.nimbus.datastore.model._
+import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
+import com.xebia.nimbus.datastore_model._
 
-class LookupSpec extends NimbusSpec {
+class LookupSpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
 
   "Lookups" should {
     "should return found items for existing items" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -50,8 +51,8 @@ class LookupSpec extends NimbusSpec {
 
     "should return missing items for non items" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.take(1).map(Insert.apply)

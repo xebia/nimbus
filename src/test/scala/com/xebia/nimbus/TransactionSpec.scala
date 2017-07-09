@@ -21,7 +21,7 @@
 
 package com.xebia.nimbus
 
-class TransactionSpec extends NimbusSpec {
+class TransactionSpec extends WithClientSpec {
   "A transaction" should {
     "should initialize correctly with a transaction identifier" in {
       client.beginTransaction.map { response =>

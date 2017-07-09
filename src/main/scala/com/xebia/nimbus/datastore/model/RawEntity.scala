@@ -19,12 +19,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.model
+package com.xebia.nimbus.datastore.model
 
-final case class Entity(key: Key, properties: Option[Map[String, Value]])
+final case class RawEntity(key: Key, properties: Option[Map[String, Value]])
 
-object Entity {
-  def apply(key: Key, properties: Map[String, Value]): Entity = Entity(key, Some(properties))
+object RawEntity {
+  def apply(key: Key, properties: Map[String, Value]): RawEntity = RawEntity(key, Some(properties))
 }
 
 final case class EmbeddedEntity(properties: Map[String, Value])

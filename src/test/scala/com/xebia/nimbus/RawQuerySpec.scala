@@ -21,26 +21,27 @@
 
 package com.xebia.nimbus
 
-import com.xebia.nimbus.api.CommitApi.CommitMode
-import com.xebia.nimbus.api.QueryApi.Filter.PropertyFilter
-import com.xebia.nimbus.api.QueryApi._
-import com.xebia.nimbus.model.Value._
-import com.xebia.nimbus.model._
+import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
+import com.xebia.nimbus.datastore.api.QueryApi.Filter.PropertyFilter
+import com.xebia.nimbus.datastore.api.QueryApi._
+import com.xebia.nimbus.datastore.model._
+import com.xebia.nimbus.datastore.model.Value._
+import com.xebia.nimbus.datastore_model._
 
-class QuerySpec extends NimbusSpec {
+class RawQuerySpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
 
   "Queries" should {
     "return found items on basis of property filters" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
       val keys = entities.map(_.key)
 
-      val query = Query(None, Some(Seq("Pet")), Some(PropertyFilter("color", PropertyOperator.Equal, "Brown")), None, None, None, None, None, None)
+      val query = RawQuery(None, Some(Seq("Pet")), Some(PropertyFilter("color", PropertyOperator.Equal, "Brown")), None, None, None, None, None, None)
       for {
         transactionId <- client.beginTransaction()
         _ <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)

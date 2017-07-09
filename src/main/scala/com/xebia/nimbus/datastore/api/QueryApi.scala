@@ -19,23 +19,22 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.api
+package com.xebia.nimbus.datastore.api
 
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
 import com.xebia.nimbus.Connection
-import com.xebia.nimbus.api.LookupApi.LookupRequest
-import com.xebia.nimbus.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
-import com.xebia.nimbus.api.QueryApi.GlqQueryParameter.{GlqCursorQueryParameter, GlqValueQueryParameter}
-import com.xebia.nimbus.api.QueryApi.{CompositeOperator, EntityResultType, Filter, GlqQuery, GlqQueryParameter, KindExpression, MoreResultsType, OrderDirection, Projection, PropertyOperator, PropertyOrder, PropertyReference, Query, QueryRequest, QueryResponse, QueryResultBatch}
-import com.xebia.nimbus.model._
-import com.xebia.nimbus.serialization.NimbusSerialization
+import com.xebia.nimbus.datastore.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
+import com.xebia.nimbus.datastore.api.QueryApi.GlqQueryParameter._
+import com.xebia.nimbus.datastore.api.QueryApi._
+import com.xebia.nimbus.datastore.model.{EntityResult, PartitionId, ReadOption, Value}
+import com.xebia.nimbus.datastore.serialization.Serializers
+import com.xebia.nimbus.datastore.model._
 import spray.json.{JsArray, JsObject, JsString, RootJsonFormat, _}
 
-import scala.language.implicitConversions
 import scala.concurrent.Future
+import scala.language.implicitConversions
 
 trait QueryApiConversions {
   implicit def stringToPropertyReference(name: String) = PropertyReference(name)
@@ -43,7 +42,7 @@ trait QueryApiConversions {
   implicit def stringToKindExpression(name: String) = KindExpression(name)
 }
 
-trait QueryApiFormatters extends NimbusSerialization {
+trait QueryApiFormatters extends Serializers {
   implicit val compositeOperatorFormat = new EnumJsonConverter(CompositeOperator)
   implicit val propertyOperatorFormat = new EnumJsonConverter(PropertyOperator)
   implicit val orderDirectionFormat = new EnumJsonConverter(OrderDirection)
@@ -86,8 +85,8 @@ trait QueryApiFormatters extends NimbusSerialization {
     }
   }
 
-  implicit val queryFormat = jsonFormat9(Query.apply)
-  implicit val glqQueryFormat = jsonFormat4(GlqQuery.apply)
+  implicit val queryFormat = jsonFormat9(RawQuery.apply)
+  implicit val glqQueryFormat = jsonFormat4(RawGlqQuery.apply)
   implicit val queryRequestFormat = jsonFormat4(QueryRequest.apply)
   implicit val queryResultBatchFormat = jsonFormat7(QueryResultBatch.apply)
   implicit val queryResponseFormat = jsonFormat2(QueryResponse.apply)
@@ -144,7 +143,7 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
 
   case class PropertyOrder(property: PropertyReference, direction: OrderDirection.Value)
 
-  case class Query(projection: Option[Seq[Projection]], kind: Option[Seq[KindExpression]], filter: Option[Filter], order: Option[Seq[PropertyOrder]], distinctOn: Option[Seq[PropertyReference]], startCursor: Option[String], endCursor: Option[String], offset: Option[Int], limit: Option[Int])
+  case class RawQuery(projection: Option[Seq[Projection]], kind: Option[Seq[KindExpression]], filter: Option[Filter], order: Option[Seq[PropertyOrder]], distinctOn: Option[Seq[PropertyReference]], startCursor: Option[String], endCursor: Option[String], offset: Option[Int], limit: Option[Int])
 
   trait GlqQueryParameter
 
@@ -154,13 +153,13 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
     case class GlqCursorQueryParameter(cursor: String) extends GlqQueryParameter
   }
 
-  case class GlqQuery(queryString: String, allowLiterals: Boolean, nameBindings: Map[String, GlqQueryParameter], positionalBindings: Seq[GlqQueryParameter])
+  case class RawGlqQuery(queryString: String, allowLiterals: Boolean, nameBindings: Map[String, GlqQueryParameter], positionalBindings: Seq[GlqQueryParameter])
 
-  case class QueryRequest(partitionId: PartitionId, readOptions: ReadOption, query: Option[Query], gqlQuery: Option[GlqQuery])
+  case class QueryRequest(partitionId: PartitionId, readOptions: ReadOption, query: Option[RawQuery], gqlQuery: Option[RawGlqQuery])
 
   case class QueryResultBatch(skippedResults: Option[Int], skippedCursor: Option[String], entityResultType: EntityResultType.Value, entityResults: Option[Seq[EntityResult]], endCursor: Option[String], moreResults: MoreResultsType.Value, snapshotVersion: Option[String])
 
-  case class QueryResponse(batch: QueryResultBatch, query: Option[Query])
+  case class QueryResponse(batch: QueryResultBatch, query: Option[RawQuery])
 
 }
 
@@ -168,7 +167,7 @@ trait QueryApi extends Connection {
 
   import QueryApi._
 
-  private def query(partitionId: PartitionId, readOption: ReadOption, query: Option[Query], glqQuery: Option[GlqQuery]): Future[QueryResponse] = {
+  private def query(partitionId: PartitionId, readOption: ReadOption, query: Option[RawQuery], glqQuery: Option[RawGlqQuery]): Future[QueryResponse] = {
     val uri: Uri = baseUri + ":runQuery"
     for {
       request <- Marshal(QueryRequest(partitionId, readOption, query, glqQuery)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
@@ -179,11 +178,11 @@ trait QueryApi extends Connection {
     }
   }
 
-  def query(partitionId: PartitionId, readOption: ReadOption, query: Query): Future[QueryResponse] = {
+  def query(partitionId: PartitionId, readOption: ReadOption, query: RawQuery): Future[QueryResponse] = {
     this.query(partitionId, readOption, Some(query), None)
   }
 
-  def query(partitionId: PartitionId, readOption: ReadOption, glqQuery: GlqQuery): Future[QueryResponse] = {
+  def query(partitionId: PartitionId, readOption: ReadOption, glqQuery: RawGlqQuery): Future[QueryResponse] = {
     this.query(partitionId, readOption, None, Some(glqQuery))
   }
 }

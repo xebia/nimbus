@@ -19,35 +19,21 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus
+package com.xebia.nimbus.datastore.model
 
-import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import com.xebia.nimbus.Connection.AccessToken
-import com.xebia.nimbus.api._
+final case class Key(partitionId: PartitionId, path: Seq[PathElement])
 
-class Client(
-  val accessToken:      AccessToken,
-  val projectId:        String,
-  val overflowStrategy: OverflowStrategy,
-  val maximumInFlight:  Int
-)(implicit val system: ActorSystem)
-  extends Connection with TransactionApi
-  with AllocateIdsApi
-  with CommitApi
-  with LookupApi
-  with QueryApi {
+object Key {
+  def named(projectId: String, entityKind: String, name: String) =
+    Key(PartitionId(projectId, None), Seq(PathElement(entityKind, Some(PathElementName(name)))))
 
-  implicit val mat = ActorMaterializer()
-  val apiHost = "www.googleapis.com"
-  val apiPort = 443
-  val datastoreAPIEndPoint = s"https://$apiHost/auth/datastore"
-  val googleAPIEndPoint = s"https://$apiHost"
-}
+  def named(projectId: String, namespace: String, entityKind: String, name: String) =
+    Key(PartitionId(projectId, Some(namespace)), Seq(PathElement(entityKind, Some(PathElementName(name)))))
 
-object Client {
-  def apply(accessToken: AccessToken, projectId: String)(implicit system: ActorSystem) = {
-    new Client(accessToken, projectId, OverflowStrategy.dropNew, 1024)
-  }
+  def incomplete(projectId: String, entityKind: String) =
+    Key(PartitionId(projectId, None), Seq(PathElement(entityKind, None)))
+
+  def incomplete(projectId: String, namespace: String, entityKind: String) =
+    Key(PartitionId(projectId, Some(namespace)), Seq(PathElement(entityKind, None)))
 }
 

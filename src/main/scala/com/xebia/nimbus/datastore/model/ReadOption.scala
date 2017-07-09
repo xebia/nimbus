@@ -19,27 +19,15 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus
+package com.xebia.nimbus.datastore.model
 
-import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import com.xebia.nimbus.Connection.AccessToken
-import com.xebia.nimbus.api._
+trait ReadOption
 
-class TestClient(val projectId: String, val maximumInFlight: Int = 1024)(implicit val system: ActorSystem)
-  extends Connection
-  with TransactionApi
-  with AllocateIdsApi
-  with CommitApi
-  with LookupApi
-  with QueryApi {
-
-  implicit val mat = ActorMaterializer()
-
-  val overflowStrategy = OverflowStrategy.backpressure
-  val accessToken = AccessToken("LOCAL", 0)
-  val apiHost = "localhost"
-  val apiPort = 8080
-  val datastoreAPIEndPoint = s"http://localhost:8080"
-  val googleAPIEndPoint = s"http://localhost:8080"
+object ReadConsistency extends Enumeration {
+  val Strong = Value("STRONG")
+  val Eventual = Value("EVENTUAL")
 }
+
+case class TransactionConsistency(transaction: String) extends ReadOption
+
+case class ExplicitConsistency(readConsistency: ReadConsistency.Value) extends ReadOption

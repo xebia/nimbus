@@ -19,6 +19,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.model
+package com.xebia.nimbus.datastore.model
 
-case class EntityResult(entity: Entity, version: Long, cursor: Array[Byte])
+final case class PartitionId(projectId: String, namespaceId: Option[String])
+
+object PartitionId {
+  def apply(projectId: String): PartitionId = PartitionId(projectId, None)
+}

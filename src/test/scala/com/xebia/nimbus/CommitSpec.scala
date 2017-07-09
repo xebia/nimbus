@@ -21,17 +21,18 @@
 
 package com.xebia.nimbus
 
-import com.xebia.nimbus.api.CommitApi.CommitMode
-import com.xebia.nimbus.model._
+import com.xebia.nimbus.datastore.model._
+import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
+import com.xebia.nimbus.datastore_model._
 
-class CommitSpec extends NimbusSpec {
+class CommitSpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
 
   "A commit" should {
     "should throw an exception when the transaction ID isn't known" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -43,8 +44,8 @@ class CommitSpec extends NimbusSpec {
 
     "should handle inserts correctly" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -60,8 +61,8 @@ class CommitSpec extends NimbusSpec {
 
     "should handle inserts when no keys are supplied" in {
       val entities = List(
-        Entity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        Entity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -77,7 +78,7 @@ class CommitSpec extends NimbusSpec {
 
     "should handle deletes for existing keys" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
       )
 
       val insertMutations = entities.map(Insert.apply)
@@ -96,7 +97,7 @@ class CommitSpec extends NimbusSpec {
 
     "shouldn't apply changes for non-existing keys" in {
       val entities = List(
-        Entity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
+        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
       )
 
       val deleteMutations = entities.map(_.key).map(Delete.apply)

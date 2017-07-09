@@ -19,20 +19,21 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.xebia.nimbus.api
+package com.xebia.nimbus.datastore.api
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
 import com.xebia.nimbus.Connection
-import com.xebia.nimbus.model._
-import com.xebia.nimbus.serialization.NimbusSerialization
+import com.xebia.nimbus.datastore.model._
+import com.xebia.nimbus.datastore.serialization.Serializers
+import com.xebia.nimbus.datastore_model._
 import spray.json.{RootJsonWriter, _}
 
 import scala.concurrent.Future
 
-object CommitApi extends NimbusSerialization {
+object CommitApi extends Serializers {
   implicit val mutationResultFormat = jsonFormat3(MutationResult.apply)
   implicit val commitResponseFormat = jsonFormat2(CommitResponse.apply)
 
