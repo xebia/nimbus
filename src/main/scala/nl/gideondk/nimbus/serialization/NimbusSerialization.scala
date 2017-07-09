@@ -31,7 +31,7 @@ trait KeySerialization extends DefaultJsonProtocol {
 }
 
 
-trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
+trait ValueSerialization extends DefaultJsonProtocol with KeySerialization {
   val NullValueKey = "nullValue"
   val BooleanValueKey = "booleanValue"
   val IntegerValueKey = "integerValue"
@@ -101,7 +101,7 @@ trait ValueSerialization extends DefaultJsonProtocol with KeySerialization  {
   }
 
 
-  implicit val entityFormatter = jsonFormat2[Key, Option[Map[String,Value]], Entity](Entity.apply)
+  implicit val entityFormatter = jsonFormat2[Key, Option[Map[String, Value]], Entity](Entity.apply)
 
   implicit val embeddedEntityFormatter = jsonFormat1(EmbeddedEntity.apply)
 }
@@ -122,7 +122,37 @@ trait EntityResultSerialization extends ValueSerialization {
 
 }
 
-object Serialization
+
+trait ReadOptionSerialization extends DefaultJsonProtocol {
+
+  implicit object ReadOptionJsonFormat extends RootJsonFormat[ReadOption] {
+    def write(c: ReadOption) = {
+      c match {
+        case x: TransactionConsistency => JsObject("transaction" -> JsString(x.transaction))
+        case x: ExplicitConsistency => JsObject("readConsistency" -> JsString(x.readConsistency.toString))
+      }
+    }
+
+    def read(js: JsValue) = ???
+  }
+
+}
+
+trait NimbusSerialization
   extends KeySerialization
     with ValueSerialization
-    with EntityResultSerialization {}
+    with EntityResultSerialization
+    with ReadOptionSerialization {
+
+  class EnumJsonConverter[T <: scala.Enumeration](enum: T) extends RootJsonFormat[T#Value] {
+    override def write(obj: T#Value): JsValue = JsString(obj.toString)
+
+    override def read(json: JsValue): T#Value = {
+      json match {
+        case JsString(txt) => enum.withName(txt)
+        case somethingElse => throw DeserializationException(s"Expected a value from enum $enum instead of $somethingElse")
+      }
+    }
+  }
+
+}

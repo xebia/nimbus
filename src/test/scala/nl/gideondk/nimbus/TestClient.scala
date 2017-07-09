@@ -1,17 +1,17 @@
 package nl.gideondk.nimbus
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.settings.ConnectionPoolSettings
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import nl.gideondk.nimbus.Connection.AccessToken
-import nl.gideondk.nimbus.api.{AllocateIdsApi, CommitApi, LookupApi, TransactionApi}
+import nl.gideondk.nimbus.api._
 
 class TestClient(val projectId: String, val maximumInFlight: Int = 1024)(implicit val system: ActorSystem)
   extends Connection
     with TransactionApi
     with AllocateIdsApi
     with CommitApi
-    with LookupApi {
+    with LookupApi
+    with QueryApi {
 
   implicit val mat = ActorMaterializer()
 

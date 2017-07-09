@@ -8,11 +8,15 @@ import spray.json.DefaultJsonProtocol
 
 import scala.concurrent.Future
 
-trait TransactionApi extends Connection with DefaultJsonProtocol {
-
+object TransactionApi extends DefaultJsonProtocol  {
   case class BeginTransactionResponse(transaction: String)
 
   implicit val transactionResponseFormat = jsonFormat1(BeginTransactionResponse.apply)
+
+}
+
+trait TransactionApi extends Connection {
+  import TransactionApi._
 
   def beginTransaction(): Future[String] = {
     val uri: Uri = baseUri + ":beginTransaction"

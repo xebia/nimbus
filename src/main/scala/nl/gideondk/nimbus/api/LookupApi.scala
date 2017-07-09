@@ -5,37 +5,20 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import nl.gideondk.nimbus.Connection
-import nl.gideondk.nimbus.model.{Entity, Key}
-import spray.json.{DefaultJsonProtocol, JsObject, JsString, JsValue, RootJsonFormat}
+import nl.gideondk.nimbus.model._
+import nl.gideondk.nimbus.serialization.NimbusSerialization
+import spray.json.DefaultJsonProtocol
 
 import scala.concurrent.Future
 
-trait LookupApi extends Connection with DefaultJsonProtocol {
+object LookupApi extends NimbusSerialization {
 
-  import nl.gideondk.nimbus.serialization.Serialization._
+  implicit val lookupRequestFormat = jsonFormat2(LookupRequest.apply)
 
-  trait ReadOption
+  implicit val entityResultFormat = jsonFormat3(EntityResult.apply)
 
-  object ReadConsistency extends Enumeration {
-    val Strong = Value("STRONG")
-    val Eventual = Value("EVENTUAL")
-  }
+  implicit val lookupResponseFormat = jsonFormat3(LookupResponse.apply)
 
-  case class TransactionConsistency(transaction: String) extends ReadOption
-
-  case class ExplicitConsistency(readConsistency: ReadConsistency.Value) extends ReadOption
-
-
-  implicit object ReadOptionJsonFormat extends RootJsonFormat[ReadOption] {
-    def write(c: ReadOption) = {
-      c match {
-        case x: TransactionConsistency => JsObject("transaction" -> JsString(x.transaction))
-        case x: ExplicitConsistency => JsObject("readConsistency" -> JsString(x.readConsistency.toString))
-      }
-    }
-
-    def read(js: JsValue) = ???
-  }
 
   case class LookupRequest(readOptions: ReadOption, keys: Seq[Key])
 
@@ -43,11 +26,11 @@ trait LookupApi extends Connection with DefaultJsonProtocol {
 
   case class LookupResponse(found: Option[Seq[EntityResult]], missing: Option[Seq[EntityResult]], deferred: Option[Seq[Key]])
 
-  implicit val lookupRequestFormat = jsonFormat2(LookupRequest.apply)
+}
 
-  implicit val entityResultFormat = jsonFormat3(EntityResult.apply)
+trait LookupApi extends Connection {
 
-  implicit val lookupResponseFormat = jsonFormat3(LookupResponse.apply)
+  import LookupApi._
 
   private def lookup(readOption: ReadOption, keys: Seq[Key]): Future[LookupResponse] = {
     val uri: Uri = baseUri + ":lookup"

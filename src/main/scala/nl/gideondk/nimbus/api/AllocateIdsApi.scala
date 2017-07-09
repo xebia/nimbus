@@ -6,20 +6,22 @@ import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import nl.gideondk.nimbus.Connection
 import nl.gideondk.nimbus.model.Key
+import nl.gideondk.nimbus.serialization.NimbusSerialization
 import spray.json.DefaultJsonProtocol
 
 import scala.concurrent.Future
 
-trait AllocateIdsApi extends Connection with DefaultJsonProtocol {
+object AllocateIdsApi extends NimbusSerialization {
 
-  import nl.gideondk.nimbus.serialization.Serialization._
+    implicit val allocateIdsRequestFormat = jsonFormat1(AllocateIdsRequest.apply)
+    implicit val allocateIdsResponseFormat = jsonFormat1(AllocateIdsResponse.apply)
 
   case class AllocateIdsRequest(keys: Seq[Key])
 
   case class AllocateIdsResponse(keys: Seq[Key])
-
-  implicit val allocateIdsRequestFormat = jsonFormat1(AllocateIdsRequest.apply)
-  implicit val allocateIdsResponseFormat = jsonFormat1(AllocateIdsResponse.apply)
+}
+trait AllocateIdsApi extends Connection {
+  import AllocateIdsApi._
 
   def allocateIds(keys: Seq[Key]): Future[Seq[Key]] = {
     val uri: Uri = baseUri + ":allocateIds"

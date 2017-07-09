@@ -6,25 +6,12 @@ import akka.http.scaladsl.model.headers.OAuth2BearerToken
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
 import nl.gideondk.nimbus.Connection
 import nl.gideondk.nimbus.model._
-import spray.json.{DefaultJsonProtocol, RootJsonWriter, _}
+import nl.gideondk.nimbus.serialization.NimbusSerialization
+import spray.json.{RootJsonWriter, _}
 
 import scala.concurrent.Future
 
-trait CommitApi extends Connection with DefaultJsonProtocol {
-
-  import nl.gideondk.nimbus.serialization.Serialization._
-
-  object CommitMode extends Enumeration {
-    val Transactional = Value("TRANSACTIONAL")
-    val NonTransactional = Value("NON_TRANSACTIONAL")
-  }
-
-  case class MutationResult(key: Option[Key], version: String, conflictDetected: Option[Boolean])
-
-  case class CommitRequest(mode: CommitMode.Value, mutations: Seq[Mutation], transactionId: String)
-
-  case class CommitResponse(mutationResults: Seq[MutationResult], indexUpdates: Option[Int])
-
+object CommitApi extends NimbusSerialization {
   implicit val mutationResultFormat = jsonFormat3(MutationResult.apply)
   implicit val commitResponseFormat = jsonFormat2(CommitResponse.apply)
 
@@ -43,6 +30,24 @@ trait CommitApi extends Connection with DefaultJsonProtocol {
       JsObject("mode" -> JsString(c.mode.toString), "mutations" -> JsArray(mutationsAsJson.toVector), "transaction" -> JsString(c.transactionId))
     }
   }
+
+
+  object CommitMode extends Enumeration {
+    val Transactional = Value("TRANSACTIONAL")
+    val NonTransactional = Value("NON_TRANSACTIONAL")
+  }
+
+  case class MutationResult(key: Option[Key], version: String, conflictDetected: Option[Boolean])
+
+  case class CommitRequest(mode: CommitMode.Value, mutations: Seq[Mutation], transactionId: String)
+
+  case class CommitResponse(mutationResults: Seq[MutationResult], indexUpdates: Option[Int])
+
+}
+
+trait CommitApi extends Connection {
+
+  import CommitApi._
 
   private def commit(transactionId: String, mutations: Seq[Mutation], commitMode: CommitMode.Value): Future[CommitResponse] = {
     val uri: Uri = baseUri + ":commit"
