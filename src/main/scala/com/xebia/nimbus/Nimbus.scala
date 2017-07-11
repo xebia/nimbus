@@ -21,8 +21,10 @@
 
 package com.xebia.nimbus
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.Source
 import com.xebia.nimbus.Query.QueryDSL
 import com.xebia.nimbus.datastore.api.CommitApi.CommitMode
 import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
@@ -30,7 +32,6 @@ import com.xebia.nimbus.datastore.api.QueryApi.{EntityResultType, MoreResultsTyp
 import com.xebia.nimbus.datastore.model._
 
 import scala.concurrent.Future
-
 import scala.language.implicitConversions
 
 case class MutationResult(path: Option[Path], version: String, conflictDetected: Option[Boolean])
@@ -164,4 +165,14 @@ class Nimbus(namespace: String, client: RawClient) {
 
   def query[A: EntityReader](q: QueryDSL) = queryWithEventualConsistency(q)
 
+  def querySource[A: EntityReader](q: QueryDSL): Source[A, NotUsed] =
+    Source.unfoldAsync(q.inner.startCursor)(cursor =>
+      queryWithEventualConsistency(q.startFrom(cursor))
+        .map { res =>
+          if (res.results.length > 0) {
+            res.endCursor.map(x => Some(x) -> res.results)
+          } else {
+            None
+          }
+        }).mapConcat[A](x => x.toList)
 }

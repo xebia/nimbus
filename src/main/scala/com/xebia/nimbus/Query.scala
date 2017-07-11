@@ -46,6 +46,8 @@ object Query {
 
     def startFrom(cursor: String) = QueryDSL(inner.copy(startCursor = Some(cursor)))
 
+    def startFrom(cursorOpt: Option[String]) = QueryDSL(inner.copy(startCursor = cursorOpt))
+
     def endAt(cursor: String) = QueryDSL(inner.copy(endCursor = Some(cursor)))
 
     def withOffset(offset: Int) = QueryDSL(inner.copy(offset = Some(offset)))

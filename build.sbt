@@ -55,7 +55,7 @@ lazy val root = (project in file("."))
   .settings(
     name := """nimbus""",
 
-    version := "0.1"
+    version := "0.1-SNAPSHOT"
   )
 
 

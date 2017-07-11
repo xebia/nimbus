@@ -21,7 +21,7 @@
 
 package com.xebia.nimbus.datastore.model
 
-trait PathElementIdType
+sealed trait PathElementIdType
 
 final case class PathElementId(value: Long) extends PathElementIdType
 

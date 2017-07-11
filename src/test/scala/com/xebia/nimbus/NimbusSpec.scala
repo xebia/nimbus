@@ -1,5 +1,8 @@
 package com.xebia.nimbus
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Sink
 import com.xebia.nimbus.Path._
 import com.xebia.nimbus.Query._
 import com.xebia.nimbus.datastore.model.Value._
@@ -86,6 +89,19 @@ class NimbusSpec extends WithClientSpec {
         q.results.last shouldBe mike
         q2.results.head shouldBe mike
         q2.results.last shouldBe bob
+      }
+    }
+
+    "correctly stream query results" in {
+      implicit val system = ActorSystem()
+      implicit val mat = ActorMaterializer()
+
+      val entities = (0 until 1000).toList.map(x => Entity('$TestObject, Map("number" -> 0)))
+      for {
+        _ <- nimbus.upsert(entities)
+        qs <- nimbus.querySource[Entity](Q.kindOf('$TestObject)).runWith(Sink.seq)
+      } yield {
+        qs.length shouldBe 1000
       }
     }
   }

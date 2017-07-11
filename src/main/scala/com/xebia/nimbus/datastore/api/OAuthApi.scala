@@ -119,7 +119,7 @@ object OAuthApi extends DefaultJsonProtocol {
           accessToken = Promise[AccessToken]()
           accessToken.completeWith(f())
           accessToken.future.onFailure { case e =>
-            failStage(throw new IllegalStateException(s"Couldn't request `AccessToken`, not able to exchange requests without authentication", e))
+            failStage(new IllegalStateException(s"Couldn't request `AccessToken`, not able to exchange requests without authentication", e))
           }
           accessToken.future
         }

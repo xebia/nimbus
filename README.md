@@ -24,7 +24,6 @@ context of the technology powering the clien; most parts of the client should be
 ### Currently missing / soon to be added
 - (Typesafe / Lightbend) based configuration for (authentication) parameters. 
 - GQL implementation within opinionated layer for querying (idea is to make this compiler checked)
-- An Akka Streams / `Source` implementation for (streaming) queries. 
 - Excessive test suite for all functionality (most is covered in the Nimbus test) and access token retrieval (should be mocked).
 - Benchmark tests for performance calibration. 
 - Way of switching test suite between emulated server and actual server (currently all testing is done through the emulated layer)
@@ -181,6 +180,7 @@ for {
     q <- nimbus.query[Person](Q.kindOf('Person).filterBy('age > 6))
     q2 <- nimbus.query[Person](Q.kindOf('Person).filterBy('age > 6 and 'age < 20))
     q3 <- nimbus.query[Person](Q.kindOf('Person).filterBy('age > 6 and 'age < 20 and 'age > 10))
+    q4 <- nimbus.querySource[Person](Q.kindOf('Person).filterBy('age > 6)).runWith(Sink.seq)
 } yield {
     q.results should contain theSameElementsAs Seq(mike, nikky, bob)
     q2.results should contain theSameElementsAs Seq(mike, nikky)

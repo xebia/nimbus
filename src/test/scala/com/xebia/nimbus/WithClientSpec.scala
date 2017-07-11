@@ -25,7 +25,7 @@ import akka.actor.ActorSystem
 import org.scalatest._
 import Query._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.OverflowStrategy
+import akka.stream.{ActorMaterializer, OverflowStrategy}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.xebia.nimbus.datastore.api.OAuthApi
 import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
@@ -37,6 +37,7 @@ import scala.util.{Failure, Success}
 trait WithClientSpec extends AsyncWordSpec with Matchers {
   val projectId = "test-project"
   implicit val system = ActorSystem()
+  implicit val mat = ActorMaterializer()
 
   val client = new EmulatorPointedRawClient(projectId)
 
@@ -47,8 +48,7 @@ trait WithClientSpec extends AsyncWordSpec with Matchers {
   override def withFixture(test: NoArgAsyncTest): FutureOutcome = {
 
     val futureTestResult = (for {
-      q <- nimbus.query[Entity](Q.kindOf('$TestObject))
-      _ <- nimbus.delete(q.results.map(x => x.path))
+      _ <- nimbus.querySource[Entity](Q.kindOf('$TestObject)).mapAsync(64)(x => nimbus.delete(x.path)).runWith(Sink.ignore)
     } yield {
     }) flatMap { result =>
       super.withFixture(test).toFuture
