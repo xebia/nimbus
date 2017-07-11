@@ -85,15 +85,6 @@ Or by passing the credentials directly:
  
 ```scala 
 val nimbus = Nimbus(credentials, projectId, namespace)
-
-def apply(credentials: Credentials,
-            projectId: String,
-            namespace: String,
-            overflowStrategy: OverflowStrategy,
-            maximumRequestsInFlight: Int)(implicit system: ActorSystem) = {
-    val client = new RawClient(credentials, projectId, overflowStrategy, maximumRequestsInFlight)
-    new Nimbus(namespace, client)
-  }
 ```
 
 As additional parameters, both a `OverflowStrategy` can be supplied as a manner of back-pressure strategy and a 
