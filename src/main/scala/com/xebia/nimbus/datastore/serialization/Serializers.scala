@@ -22,7 +22,7 @@
 package com.xebia.nimbus.datastore.serialization
 
 import com.xebia.nimbus.datastore.model._
-import spray.json.{DefaultJsonProtocol, _}
+import spray.json.{ DefaultJsonProtocol, _ }
 
 import scala.language.implicitConversions
 

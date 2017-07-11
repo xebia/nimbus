@@ -23,32 +23,31 @@ package com.xebia.nimbus
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, OverflowStrategy}
-import com.xebia.nimbus.Connection.AccessToken
+import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
 import com.xebia.nimbus.datastore.api._
-import com.xebia.nimbus.datastore_api._
 
-class RawClient(
-  val accessToken:      AccessToken,
-  val projectId:        String,
-  val overflowStrategy: OverflowStrategy,
-  val maximumInFlight:  Int
-)(implicit val system: ActorSystem)
+class RawClient(val credentials: Credentials,
+                val projectId: String,
+                val overflowStrategy: OverflowStrategy,
+                val maximumInFlight: Int
+               )(implicit val system: ActorSystem)
   extends Connection with TransactionApi
-  with AllocateIdsApi
-  with CommitApi
-  with LookupApi
-  with QueryApi {
+    with AllocateIdsApi
+    with CommitApi
+    with LookupApi
+    with QueryApi {
 
   implicit val mat = ActorMaterializer()
-  val apiHost = "www.googleapis.com"
+
+  val apiHost = "datastore.googleapis.com"
   val apiPort = 443
-  val datastoreAPIEndPoint = s"https://$apiHost/auth/datastore"
+  val datastoreAPIEndPoint = s"https://$apiHost"
   val googleAPIEndPoint = s"https://$apiHost"
 }
 
 object RawClient {
-  def apply(accessToken: AccessToken, projectId: String)(implicit system: ActorSystem) = {
-    new RawClient(accessToken, projectId, OverflowStrategy.dropNew, 1024)
+  def apply(credentials: Credentials, projectId: String)(implicit system: ActorSystem) = {
+    new RawClient(credentials, projectId, OverflowStrategy.dropNew, 1024)
   }
 }
 

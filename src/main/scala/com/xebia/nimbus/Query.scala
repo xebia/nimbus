@@ -1,25 +1,25 @@
 package com.xebia.nimbus
 
-import com.xebia.nimbus.datastore.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
-import com.xebia.nimbus.datastore.api.QueryApi.{CompositeOperator, PropertyOperator, PropertyReference, RawQuery}
-import com.xebia.nimbus.datastore.model.{Key, ToValue, Value}
+import com.xebia.nimbus.datastore.api.QueryApi.Filter.{ CompositeFilter, PropertyFilter }
+import com.xebia.nimbus.datastore.api.QueryApi.{ CompositeOperator, PropertyOperator, PropertyReference, RawQuery }
+import com.xebia.nimbus.datastore.model.{ Key, ValueWriter, Value }
 
 object Query {
 
-  implicit class stringToFieldNameToComparisonFilter(s: String) {
-    def >[A: ToValue](v: A) = PropertyFilter(PropertyReference(s), PropertyOperator.GreaterThan, implicitly[ToValue[A]].toValue(v))
+  implicit class symbolToFieldNameToComparisonFilter(s: Symbol) {
+    def >[A: ValueWriter](v: A) = PropertyFilter(PropertyReference(s.name), PropertyOperator.GreaterThan, implicitly[ValueWriter[A]].write(v))
 
-    def >=[A: ToValue](v: A) = PropertyFilter(PropertyReference(s), PropertyOperator.GreaterThanOrEqual, implicitly[ToValue[A]].toValue(v))
+    def >=[A: ValueWriter](v: A) = PropertyFilter(PropertyReference(s.name), PropertyOperator.GreaterThanOrEqual, implicitly[ValueWriter[A]].write(v))
 
-    def <[A: ToValue](v: A) = PropertyFilter(PropertyReference(s), PropertyOperator.LessThan, implicitly[ToValue[A]].toValue(v))
+    def <[A: ValueWriter](v: A) = PropertyFilter(PropertyReference(s.name), PropertyOperator.LessThan, implicitly[ValueWriter[A]].write(v))
 
-    def <=[A: ToValue](v: A) = PropertyFilter(PropertyReference(s), PropertyOperator.LessThanOrEqual, implicitly[ToValue[A]].toValue(v))
+    def <=[A: ValueWriter](v: A) = PropertyFilter(PropertyReference(s.name), PropertyOperator.LessThanOrEqual, implicitly[ValueWriter[A]].write(v))
 
-    def ===[A: ToValue](v: A) = PropertyFilter(PropertyReference(s), PropertyOperator.Equal, implicitly[ToValue[A]].toValue(v))
+    def ===[A: ValueWriter](v: A) = PropertyFilter(PropertyReference(s.name), PropertyOperator.Equal, implicitly[ValueWriter[A]].write(v))
 
-    def \\(v: Key) = PropertyFilter(PropertyReference(s), PropertyOperator.HasAncestor, Value(v))
+    def \\(v: Key) = PropertyFilter(PropertyReference(s.name), PropertyOperator.HasAncestor, Value(v))
 
-    def hasAncestor(v: Key) = PropertyFilter(PropertyReference(s), PropertyOperator.HasAncestor, Value(v))
+    def hasAncestor(v: Key) = PropertyFilter(PropertyReference(s.name), PropertyOperator.HasAncestor, Value(v))
   }
 
   implicit class propertyFilterToCombinable(filter: PropertyFilter) {
@@ -27,22 +27,22 @@ object Query {
   }
 
   implicit class compositeFilterToCombinable(filter: CompositeFilter) {
-    def and(combineWith: PropertyFilter) = CompositeFilter(CompositeOperator.And, filter.filter :+ combineWith)
+    def and(combineWith: PropertyFilter) = CompositeFilter(CompositeOperator.And, filter.filters :+ combineWith)
   }
 
   case class QueryDSL(val inner: RawQuery) {
 
     import com.xebia.nimbus.datastore.api.QueryApi._
 
-    def kindOf(kind: String) = QueryDSL(inner.copy(kind = Some(Seq(kind)))) // Only one kind can be set in the current DS API
+    def kindOf(kind: Symbol) = QueryDSL(inner.copy(kind = Some(Seq(kind.name)))) // Only one kind can be set in the current DS API
 
-    def orderAscBy(field: String) = QueryDSL(inner.copy(order = Some((inner.order.getOrElse(Seq.empty) :+ PropertyOrder(field, OrderDirection.Ascending)))))
+    def orderAscBy(field: Symbol) = QueryDSL(inner.copy(order = Some((inner.order.getOrElse(Seq.empty) :+ PropertyOrder(field.name, OrderDirection.Ascending)))))
 
-    def orderDescBy(field: String) = QueryDSL(inner.copy(order = Some((inner.order.getOrElse(Seq.empty) :+ PropertyOrder(field, OrderDirection.Descending)))))
+    def orderDescBy(field: Symbol) = QueryDSL(inner.copy(order = Some((inner.order.getOrElse(Seq.empty) :+ PropertyOrder(field.name, OrderDirection.Descending)))))
 
     def filterBy(filter: Filter) = QueryDSL(inner.copy(filter = Some(filter)))
 
-    def projectOn(fields: String*) = QueryDSL(inner.copy(projection = Some(fields.toSeq.map(x => Projection(PropertyReference(x))))))
+    def projectOn(fields: Symbol*) = QueryDSL(inner.copy(projection = Some(fields.toSeq.map(x => Projection(PropertyReference(x.name))))))
 
     def startFrom(cursor: String) = QueryDSL(inner.copy(startCursor = Some(cursor)))
 
@@ -53,5 +53,5 @@ object Query {
     def withLimit(limit: Int) = QueryDSL(inner.copy(limit = Some(limit)))
   }
 
-  val Query = QueryDSL(RawQuery(None, None, None, None, None, None, None, None, None))
+  val Q = QueryDSL(RawQuery(None, None, None, None, None, None, None, None, None))
 }

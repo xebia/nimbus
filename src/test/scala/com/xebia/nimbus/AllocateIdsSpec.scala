@@ -21,15 +21,14 @@
 
 package com.xebia.nimbus
 
-import com.xebia.nimbus.datastore.model.PathElementId
-import com.xebia.nimbus.datastore_model.PathElementId
+import com.xebia.nimbus.datastore.model.{Key, PathElementId}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class AllocateIdsSpec extends WithClientSpec {
   "Allocation of IDs" should {
     "return the identity function of its input" in {
-      val keys = Seq(Key.incomplete(projectId, "testEntity"), Key.incomplete(projectId, "testEntity"), Key.incomplete(projectId, "anotherTestEntity"))
+      val keys = Seq(Key.incomplete(projectId, "$TestObject"), Key.incomplete(projectId, "$TestObject"), Key.incomplete(projectId, "$TestObject"))
       client.allocateIds(keys).map { response =>
         response.length shouldEqual 3
         response(0).path.length shouldEqual 1

@@ -24,11 +24,10 @@ package com.xebia.nimbus.datastore.api
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
+import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, RequestEntity, Uri }
 import com.xebia.nimbus.Connection
-import com.xebia.nimbus.datastore.model.{Key, RawEntity, ReadOption}
+import com.xebia.nimbus.datastore.model.{ Key, RawEntity, ReadOption }
 import com.xebia.nimbus.datastore.serialization.Serializers
-import com.xebia.nimbus.datastore_model._
 
 import scala.concurrent.Future
 
@@ -42,7 +41,7 @@ object LookupApi extends Serializers {
 
   case class LookupRequest(readOptions: ReadOption, keys: Seq[Key])
 
-  case class EntityResult(entity: RawEntity, version: String, cursor: Option[String])
+  case class EntityResult(entity: RawEntity, version: Option[String], cursor: Option[String])
 
   case class LookupResponse(found: Option[Seq[EntityResult]], missing: Option[Seq[EntityResult]], deferred: Option[Seq[Key]])
 
@@ -56,7 +55,7 @@ trait LookupApi extends Connection {
     val uri: Uri = baseUri + ":lookup"
     for {
       request <- Marshal(LookupRequest(readOption, keys)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+      response <- singleRequest(request)
       entity <- handleErrorOrUnmarshal[LookupResponse](response)
     } yield {
       entity

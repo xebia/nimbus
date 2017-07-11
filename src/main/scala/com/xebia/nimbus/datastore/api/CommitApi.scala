@@ -24,17 +24,16 @@ package com.xebia.nimbus.datastore.api
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
+import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, RequestEntity, Uri }
 import com.xebia.nimbus.Connection
 import com.xebia.nimbus.datastore.model._
 import com.xebia.nimbus.datastore.serialization.Serializers
-import com.xebia.nimbus.datastore_model._
-import spray.json.{RootJsonWriter, _}
+import spray.json.{ RootJsonWriter, _ }
 
 import scala.concurrent.Future
 
 object CommitApi extends Serializers {
-  implicit val mutationResultFormat = jsonFormat3(MutationResult.apply)
+  implicit val mutationResultFormat = jsonFormat3(RawMutationResult.apply)
   implicit val commitResponseFormat = jsonFormat2(CommitResponse.apply)
 
   implicit object CommitRequestJsonFormat extends RootJsonWriter[CommitRequest] {
@@ -58,11 +57,11 @@ object CommitApi extends Serializers {
     val NonTransactional = Value("NON_TRANSACTIONAL")
   }
 
-  case class MutationResult(key: Option[Key], version: String, conflictDetected: Option[Boolean])
+  case class RawMutationResult(key: Option[Key], version: String, conflictDetected: Option[Boolean])
 
   case class CommitRequest(mode: CommitMode.Value, mutations: Seq[Mutation], transactionId: Option[String])
 
-  case class CommitResponse(mutationResults: Seq[MutationResult], indexUpdates: Option[Int])
+  case class CommitResponse(mutationResults: Option[Seq[RawMutationResult]], indexUpdates: Option[Int])
 
 }
 
@@ -74,7 +73,7 @@ trait CommitApi extends Connection {
     val uri: Uri = baseUri + ":commit"
     for {
       request <- Marshal(CommitRequest(commitMode, mutations, transactionId)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+      response <- singleRequest(request)
       entity <- handleErrorOrUnmarshal[CommitResponse](response)
     } yield {
       entity

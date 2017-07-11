@@ -21,27 +21,39 @@
 
 package com.xebia.nimbus
 
+import akka.actor.ActorSystem
 import akka.stream.OverflowStrategy
-import com.xebia.nimbus.Connection.AccessToken
 import com.xebia.nimbus.Query.QueryDSL
-import com.xebia.nimbus.datastore.api.CommitApi.{CommitMode, MutationResult}
-import com.xebia.nimbus.datastore.api.QueryApi.QueryResponse
+import com.xebia.nimbus.datastore.api.CommitApi.CommitMode
+import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
+import com.xebia.nimbus.datastore.api.QueryApi.{EntityResultType, MoreResultsType}
 import com.xebia.nimbus.datastore.model._
 
 import scala.concurrent.Future
 
-trait NimbusDSL {
+import scala.language.implicitConversions
 
+case class MutationResult(path: Option[Path], version: String, conflictDetected: Option[Boolean])
 
-}
-
-object Nimbus extends NimbusDSL {
-  def apply(accessToken: AccessToken,
+object Nimbus {
+  def apply(credentials: Credentials,
             projectId: String,
             namespace: String,
             overflowStrategy: OverflowStrategy,
-            maximumRequestsInFlight: Int) = {
-    val client = new RawClient(accessToken, projectId, overflowStrategy, maximumRequestsInFlight)
+            maximumRequestsInFlight: Int)(implicit system: ActorSystem) = {
+    val client = new RawClient(credentials, projectId, overflowStrategy, maximumRequestsInFlight)
+    new Nimbus(namespace, client)
+  }
+
+  def apply(credentials: Credentials,
+            projectId: String,
+            namespace: String)(implicit system: ActorSystem) = {
+    val client = new RawClient(credentials, projectId, OverflowStrategy.backpressure, 1024)
+    new Nimbus(namespace, client)
+  }
+
+  def apply(namespace: String,
+            client: RawClient)(implicit system: ActorSystem) = {
     new Nimbus(namespace, client)
   }
 }
@@ -56,81 +68,100 @@ class Nimbus(namespace: String, client: RawClient) {
 
   private implicit def keyToPath(k: Key): Path = Path(k.path)
 
-  private implicit def nimbusEntityToDSEntity(e: Entity): RawEntity = RawEntity(e.path, Some(e.properties))
+  private implicit def entityToRawEntity(e: Entity): RawEntity = RawEntity(e.path, Some(e.properties))
 
-  private implicit def dsEntityToNimbusEntity(e: RawEntity): Entity = Entity(e.key, e.properties.getOrElse(throw new Exception("Expected the properties of the entity to be set")))
+  private implicit def rawEntityToEntity(e: RawEntity): Entity = Entity(e.key, e.properties.getOrElse(throw new Exception("Expected the properties of the entity to be set")))
 
   def beginTransaction() =
     client.beginTransaction()
 
   def commitTransactional(transactionId: String, mutations: Seq[Mutation]): Future[Seq[MutationResult]] =
-    client.commit(Some(transactionId), mutations, CommitMode.Transactional).map(_.mutationResults)
+    client.commit(Some(transactionId), mutations, CommitMode.Transactional).map(_.mutationResults.getOrElse(Seq.empty).map(x => MutationResult(x.key.map(x => x), x.version, x.conflictDetected)))
 
   def commitNonTransactional(mutations: Seq[Mutation]): Future[Seq[MutationResult]] =
-    client.commit(None, mutations, CommitMode.NonTransactional).map(_.mutationResults)
+    client.commit(None, mutations, CommitMode.NonTransactional).map(_.mutationResults.getOrElse(Seq.empty).map(x => MutationResult(x.key.map(x => x), x.version, x.conflictDetected)))
 
   /** CRUD **/
+  def insertTransactional[A: EntityWriter](transactionId: String, entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitTransactional(transactionId, entities.map(x => Insert(implicitly[EntityWriter[A]].write(x))))
 
-  def insertTransactional(transactionId: String, entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitTransactional(transactionId, entities.map(x => Insert(x)))
+  def insert[A: EntityWriter](entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitNonTransactional(entities.map(x => Insert(implicitly[EntityWriter[A]].write(x))))
 
-  def insert(entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitNonTransactional(entities.map(x => Insert(x)))
+  def updateTransactional[A: EntityWriter](transactionId: String, entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitTransactional(transactionId, entities.map(x => Update(implicitly[EntityWriter[A]].write(x))))
 
-  def updateTransactional(transactionId: String, entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitTransactional(transactionId, entities.map(x => Update(x)))
+  def update[A: EntityWriter](entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitNonTransactional(entities.map(x => Update(implicitly[EntityWriter[A]].write(x))))
 
-  def update(entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitNonTransactional(entities.map(x => Update(x)))
+  def upsertTransactional[A: EntityWriter](transactionId: String, entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitTransactional(transactionId, entities.map(x => Upsert(implicitly[EntityWriter[A]].write(x))))
 
-  def upsertTransactional(transactionId: String, entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitTransactional(transactionId, entities.map(x => Upsert(x)))
+  def upsert[A: EntityWriter](entities: Seq[A]): Future[Seq[MutationResult]] =
+    commitNonTransactional(entities.map(x => Upsert(implicitly[EntityWriter[A]].write(x))))
 
-  def upsert(entities: Seq[Entity]): Future[Seq[MutationResult]] =
-    commitNonTransactional(entities.map(x => Upsert(x)))
+  def deleteTransactional(transactionId: String, paths: Seq[Path]): Future[Seq[MutationResult]] =
+    commitTransactional(transactionId, paths.map(x => Delete(x)))
 
-  def deleteTransactional(transactionId: String, keys: Seq[Key]): Future[Seq[MutationResult]] =
-    commitTransactional(transactionId, keys.map(x => Delete(x)))
+  def deleteTransactional(transactionId: String, path: Path): Future[Seq[MutationResult]] =
+    deleteTransactional(transactionId, Seq(path))
 
-  def delete(keys: Seq[Key]): Future[Seq[MutationResult]] =
-    commitNonTransactional(keys.map(x => Delete(x)))
+  def delete(paths: Seq[Path]): Future[Seq[MutationResult]] =
+    commitNonTransactional(paths.map(x => Delete(x)))
+
+  def delete(path: Path): Future[Seq[MutationResult]] =
+    delete(Seq(path))
 
   /** Lookup **/
 
-  case class LookupResult(found: Seq[Entity], missing: Seq[Path])
+  case class LookupResult[A](found: Seq[A], missing: Seq[Path])
 
-  def lookupWithinTransaction(transactionId: String, paths: Seq[Path]): Future[LookupResult] =
-    client.lookup(TransactionConsistency(transactionId), paths.map(pathToKey)).map(x => LookupResult(x.found.toSeq.flatten.map(x => dsEntityToNimbusEntity(x.entity)), x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))))
+  def lookupWithinTransaction[A: EntityReader](transactionId: String, paths: Seq[Path]): Future[LookupResult[A]] =
+    client.lookup(TransactionConsistency(transactionId), paths.map(pathToKey))
+      .map(x =>
+        LookupResult(
+          x.found.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity))),
+          x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))
+        ))
 
-  def lookupWithinTransaction(transactionId: String, path: Path): Future[Option[Entity]] =
-    client.lookup(TransactionConsistency(transactionId), Seq(path)).map(response => response.found.flatMap(_.headOption.map(x => dsEntityToNimbusEntity(x.entity))))
+  def lookupWithinTransaction[A: EntityReader](transactionId: String, path: Path): Future[Option[A]] =
+    client.lookup(TransactionConsistency(transactionId), Seq(path))
+      .map(response => response.found.flatMap(_.headOption.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity)))))
 
-  def lookupWithEventualConsistency(paths: Seq[Path]): Future[LookupResult] =
-    client.lookup(ExplicitConsistency(ReadConsistency.Eventual), paths.map(pathToKey)).map(x => LookupResult(x.found.toSeq.flatten.map(x => dsEntityToNimbusEntity(x.entity)), x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))))
+  def lookupWithEventualConsistency[A: EntityReader](paths: Seq[Path]): Future[LookupResult[A]] =
+    client.lookup(ExplicitConsistency(ReadConsistency.Eventual), paths.map(pathToKey))
+      .map(x => LookupResult(x.found.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity))), x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))))
 
-  def lookupWithEventualConsistency(path: Path): Future[Option[Entity]] =
-    client.lookup(ExplicitConsistency(ReadConsistency.Eventual), Seq(path)).map(response => response.found.flatMap(_.headOption.map(x => dsEntityToNimbusEntity(x.entity))))
+  def lookupWithEventualConsistency[A: EntityReader](path: Path): Future[Option[A]] =
+    client.lookup(ExplicitConsistency(ReadConsistency.Eventual), Seq(path)).map(response => response.found.flatMap(_.headOption.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity)))))
 
-  def lookupWithStrongConsistency(paths: Seq[Path]): Future[LookupResult] =
-    client.lookup(ExplicitConsistency(ReadConsistency.Strong), paths.map(pathToKey)).map(x => LookupResult(x.found.toSeq.flatten.map(x => dsEntityToNimbusEntity(x.entity)), x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))))
+  def lookupWithStrongConsistency[A: EntityReader](paths: Seq[Path]): Future[LookupResult[A]] =
+    client.lookup(ExplicitConsistency(ReadConsistency.Strong), paths.map(pathToKey))
+      .map(x => LookupResult(x.found.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity))), x.missing.toSeq.flatten.map(x => keyToPath(x.entity.key))))
 
-  def lookupWithStrongConsistency(path: Path): Future[Option[RawEntity]] =
-    client.lookup(ExplicitConsistency(ReadConsistency.Strong), Seq(pathToKey(path))).map(response => response.found.flatMap(_.headOption.map(_.entity)))
+  def lookupWithStrongConsistency[A: EntityReader](path: Path): Future[Option[A]] =
+    client.lookup(ExplicitConsistency(ReadConsistency.Strong), Seq(path)).map(response => response.found.flatMap(_.headOption.map(x => implicitly[EntityReader[A]].read(rawEntityToEntity(x.entity)))))
 
-  def lookup(paths: Seq[Path]) = lookupWithEventualConsistency(paths)
+  def lookup[A: EntityReader](paths: Seq[Path]) = lookupWithEventualConsistency[A](paths)
 
-  def lookup(path: Path) = lookupWithEventualConsistency(path)
+  def lookup[A: EntityReader](path: Path) = lookupWithEventualConsistency[A](path)
 
   /** Query **/
 
-  def queryWithinTransaction(transactionId: String, q: QueryDSL): Future[QueryResponse] =
+  case class QueryResult[A](resultType: EntityResultType.Value, moreResults: MoreResultsType.Value, results: Seq[A], endCursor: Option[String], snapshotVersion: Option[String])
+
+  def queryWithinTransaction[A: EntityReader](transactionId: String, q: QueryDSL): Future[QueryResult[A]] =
     client.query(partitionId, TransactionConsistency(transactionId), q.inner)
+      .map(x => QueryResult(x.batch.entityResultType, x.batch.moreResults, x.batch.entityResults.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(x.entity)), x.batch.endCursor, x.batch.snapshotVersion))
 
-  def queryWithEventualConsistency(q: QueryDSL): Future[QueryResponse] =
+  def queryWithEventualConsistency[A: EntityReader](q: QueryDSL): Future[QueryResult[A]] =
     client.query(partitionId, ExplicitConsistency(ReadConsistency.Eventual), q.inner)
+      .map(x => QueryResult(x.batch.entityResultType, x.batch.moreResults, x.batch.entityResults.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(x.entity)), x.batch.endCursor, x.batch.snapshotVersion))
 
-  def queryWitStrongConsistency(q: QueryDSL): Future[QueryResponse] =
+  def queryWitStrongConsistency[A: EntityReader](q: QueryDSL): Future[QueryResult[A]] =
     client.query(partitionId, ExplicitConsistency(ReadConsistency.Strong), q.inner)
+      .map(x => QueryResult(x.batch.entityResultType, x.batch.moreResults, x.batch.entityResults.toSeq.flatten.map(x => implicitly[EntityReader[A]].read(x.entity)), x.batch.endCursor, x.batch.snapshotVersion))
 
-  def query(q: QueryDSL) = queryWithEventualConsistency(q)
+  def query[A: EntityReader](q: QueryDSL) = queryWithEventualConsistency(q)
+
 }

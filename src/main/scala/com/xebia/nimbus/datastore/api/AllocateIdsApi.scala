@@ -24,7 +24,7 @@ package com.xebia.nimbus.datastore.api
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
+import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, RequestEntity, Uri }
 import com.xebia.nimbus.Connection
 import com.xebia.nimbus.datastore.model.Key
 import com.xebia.nimbus.datastore.serialization.Serializers
@@ -47,7 +47,7 @@ trait AllocateIdsApi extends Connection {
     val uri: Uri = baseUri + ":allocateIds"
     for {
       request <- Marshal(AllocateIdsRequest(keys)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+      response <- singleRequest(request)
       entity <- handleErrorOrUnmarshal[AllocateIdsResponse](response)
     } yield {
       entity.keys

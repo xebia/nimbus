@@ -21,9 +21,8 @@
 
 package com.xebia.nimbus
 
+import com.xebia.nimbus.datastore.api.CommitApi.CommitMode
 import com.xebia.nimbus.datastore.model._
-import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
-import com.xebia.nimbus.datastore_model._
 
 class CommitSpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
@@ -31,8 +30,8 @@ class CommitSpec extends WithClientSpec {
   "A commit" should {
     "should throw an exception when the transaction ID isn't known" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -44,8 +43,8 @@ class CommitSpec extends WithClientSpec {
 
     "should handle inserts correctly" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -54,15 +53,16 @@ class CommitSpec extends WithClientSpec {
         transactionId <- client.beginTransaction()
         action <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
       } yield {
-        action.mutationResults.length shouldBe 2
-        action.mutationResults.find(x => x.key.isDefined).isDefined shouldBe false
+        action.mutationResults shouldBe defined
+        action.mutationResults.get.length shouldBe 2
+        action.mutationResults.get.find(x => x.key.isDefined) should not be defined
       }
     }
 
     "should handle inserts when no keys are supplied" in {
       val entities = List(
-        RawEntity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.incomplete(client.projectId, "Pet"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.incomplete(client.projectId, "$TestObject"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.incomplete(client.projectId, "$TestObject"), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -71,14 +71,15 @@ class CommitSpec extends WithClientSpec {
         transactionId <- client.beginTransaction()
         action <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
       } yield {
-        action.mutationResults.length shouldBe 2
-        action.mutationResults.find(x => x.key.isDefined).isDefined shouldBe true
+        action.mutationResults shouldBe defined
+        action.mutationResults.get.length shouldBe 2
+        action.mutationResults.get.find(x => x.key.isDefined) shouldBe defined
       }
     }
 
     "should handle deletes for existing keys" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
       )
 
       val insertMutations = entities.map(Insert.apply)
@@ -90,14 +91,17 @@ class CommitSpec extends WithClientSpec {
         transactionId <- client.beginTransaction()
         delete <- client.commit(Some(transactionId), deleteMutations, CommitMode.Transactional)
       } yield {
-        insert.mutationResults.length shouldBe 1
-        delete.mutationResults.length shouldBe 1
+        insert.mutationResults shouldBe defined
+        insert.mutationResults.get.length shouldBe 1
+
+        delete.mutationResults shouldBe defined
+        delete.mutationResults.get.length shouldBe 1
       }
     }
 
     "shouldn't apply changes for non-existing keys" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown"))))
       )
 
       val deleteMutations = entities.map(_.key).map(Delete.apply)
@@ -106,7 +110,7 @@ class CommitSpec extends WithClientSpec {
         transactionId <- client.beginTransaction()
         delete <- client.commit(Some(transactionId), deleteMutations, CommitMode.Transactional)
       } yield {
-        delete.indexUpdates shouldBe None
+        delete.indexUpdates should not be defined
       }
     }
   }

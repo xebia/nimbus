@@ -23,7 +23,7 @@ package com.xebia.nimbus.datastore.api
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, Uri}
+import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, Uri }
 import com.xebia.nimbus.Connection
 import spray.json.DefaultJsonProtocol
 
@@ -43,7 +43,7 @@ trait TransactionApi extends Connection {
     val uri: Uri = baseUri + ":beginTransaction"
     val request = HttpRequest.apply(HttpMethods.POST, uri)
     for {
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+      response <- singleRequest(request)
       transactionResponse <- handleErrorOrUnmarshal[BeginTransactionResponse](response)
     } yield transactionResponse.transaction
   }

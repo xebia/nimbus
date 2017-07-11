@@ -21,35 +21,35 @@
 
 package com.xebia.nimbus
 
-import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
+import com.xebia.nimbus.datastore.api.CommitApi.CommitMode
 import com.xebia.nimbus.datastore.api.QueryApi.Filter.PropertyFilter
 import com.xebia.nimbus.datastore.api.QueryApi._
 import com.xebia.nimbus.datastore.model._
 import com.xebia.nimbus.datastore.model.Value._
-import com.xebia.nimbus.datastore_model._
 
 class RawQuerySpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
 
   "Queries" should {
-    "return found items on basis of property filters" in {
-      val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
-      )
+    val entities = List(
+      RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+      RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(3)), "color" -> Value(StringValue("Black")))),
+      RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+    )
 
+    "return found items on basis of property filters" in {
       val mutations = entities.map(Insert.apply)
       val keys = entities.map(_.key)
 
-      val query = RawQuery(None, Some(Seq("Pet")), Some(PropertyFilter("color", PropertyOperator.Equal, "Brown")), None, None, None, None, None, None)
+      val query = RawQuery(None, Some(Seq("$TestObject")), Some(PropertyFilter("color", PropertyOperator.Equal, "Brown")), None, None, None, None, None, None)
       for {
         transactionId <- client.beginTransaction()
         _ <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
-        query <- client.query(PartitionId(client.projectId), ExplicitConsistency(ReadConsistency.Strong), query)
+        query <- client.query(PartitionId(client.projectId), ExplicitConsistency(ReadConsistency.Eventual), query)
       } yield {
         val entityResults = query.batch.entityResults.get
         entityResults.find(x => x.entity.key == entities(0).key).map(_.entity) shouldEqual Some(entities(0))
-        entityResults.find(x => x.entity.key == entities(1).key).isDefined shouldEqual false
+        entityResults.find(x => x.entity.key == entities(1).key) should not be defined
       }
     }
   }

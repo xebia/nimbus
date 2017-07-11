@@ -76,44 +76,91 @@ object Value {
 
   def apply(value: Array[Byte], excludeFromIndexes: Boolean): Value = Value(None, Some(excludeFromIndexes), BlobValue(value))
 
-  implicit val booleanToValue = new ToValue[Boolean] {
-    def toValue(v: Boolean) = apply(v)
+  implicit val booleanToValue = new ValueFormatter[Boolean] {
+    def write(v: Boolean) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case BooleanValue(v) => v
+      case x               => throw new Exception("Expected Boolean value, but got " + x)
+    }
   }
 
-  implicit val longToValue = new ToValue[Long] {
-    def toValue(v: Long) = apply(v)
+  implicit val longToValue = new ValueFormatter[Long] {
+    def write(v: Long) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case IntegerValue(v) => v
+      case x               => throw new Exception("Expected Integer value, but got " + x)
+    }
   }
 
-  implicit val intToValue = new ToValue[Int] {
-    def toValue(v: Int) = apply(v.toLong)
+  implicit val intToValue = new ValueFormatter[Int] {
+    def write(v: Int) = apply(v.toLong)
+
+    def read(v: Value) = v.value match {
+      case IntegerValue(v) => v.toInt
+      case x               => throw new Exception("Expected Integer value, but got " + x)
+    }
   }
 
-  implicit val doubleToValue = new ToValue[Double] {
-    def toValue(v: Double) = apply(v)
+  implicit val doubleToValue = new ValueFormatter[Double] {
+    def write(v: Double) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case DoubleValue(v) => v
+      case x              => throw new Exception("Expected Double value, but got " + x)
+    }
   }
 
-  implicit val keyToValue = new ToValue[Key] {
-    def toValue(v: Key) = apply(v)
+  implicit val keyToValue = new ValueFormatter[Key] {
+    def write(v: Key) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case KeyValue(v) => v
+      case x           => throw new Exception("Expected Key value, but got " + x)
+    }
   }
 
-  implicit val stringToValue = new ToValue[String] {
-    def toValue(v: String) = apply(v)
+  implicit val stringToValue = new ValueFormatter[String] {
+    def write(v: String) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case StringValue(v) => v
+      case x              => throw new Exception("Expected String value, but got " + x)
+    }
   }
 
-  implicit val baToValue = new ToValue[Array[Byte]] {
-    def toValue(v: Array[Byte]) = apply(v)
+  implicit val baToValue = new ValueFormatter[Array[Byte]] {
+    def write(v: Array[Byte]) = apply(v)
+
+    def read(v: Value) = v.value match {
+      case BlobValue(v) => v
+      case x            => throw new Exception("Expected Blob value, but got " + x)
+    }
   }
 
-  implicit val passthrough = new ToValue[Value] {
-    def toValue(v: Value) = v
+  implicit val passthrough = new ValueFormatter[Value] {
+    def write(v: Value) = v
+
+    def read(v: Value) = v
   }
 
-  implicit def toValue[A: ToValue](v: A) = implicitly[ToValue[A]].toValue(v)
+  implicit def toValue[A: ValueWriter](v: A) = implicitly[ValueWriter[A]].write(v)
+
+  implicit class ReadableValue(v: Value) {
+    def as[A: ValueReader] = implicitly[ValueReader[A]].read(v)
+  }
 }
 
-trait ToValue[A] {
-  def toValue(v: A): Value
+trait ValueWriter[A] {
+  def write(v: A): Value
 }
+
+trait ValueReader[A] {
+  def read(v: Value): A
+}
+
+trait ValueFormatter[A] extends ValueWriter[A] with ValueReader[A]
 
 final case class EmbeddedValue(value: ValueType)
 

@@ -23,11 +23,65 @@ package com.xebia.nimbus
 
 import akka.actor.ActorSystem
 import org.scalatest._
+import Query._
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.xebia.nimbus.datastore.api.OAuthApi
+import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
 
-trait WithClientSpec extends AsyncWordSpec with Matchers with BeforeAndAfter {
-  val projectId = "nimbus-test"
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
+
+trait WithClientSpec extends AsyncWordSpec with Matchers {
+  val projectId = "test-project"
   implicit val system = ActorSystem()
 
-  val client = new TestRawClient(projectId)
+  val client = new EmulatorPointedRawClient(projectId)
 
+  val namespace = "NimbusTest"
+
+  val nimbus = new Nimbus(namespace, client)
+
+  override def withFixture(test: NoArgAsyncTest): FutureOutcome = {
+
+    val futureTestResult = (for {
+      q <- nimbus.query[Entity](Q.kindOf('$TestObject))
+      _ <- nimbus.delete(q.results.map(x => x.path))
+    } yield {
+    }) flatMap { result =>
+      super.withFixture(test).toFuture
+    }
+    new FutureOutcome(futureTestResult)
+  }
+}
+
+object EmulatorPointedRawClient {
+
+  import java.security.{KeyPairGenerator, SecureRandom}
+
+  def generatePrivateKey() = {
+    val keyGen = KeyPairGenerator.getInstance("DSA", "SUN")
+    val random = SecureRandom.getInstance("SHA1PRNG", "SUN")
+    keyGen.initialize(1024, random)
+    val pair = keyGen.generateKeyPair
+    pair.getPrivate
+  }
+}
+
+class EmulatorPointedRawClient(override val projectId: String, override val maximumInFlight: Int = 1024)(implicit val sys: ActorSystem) extends
+  RawClient(Credentials("testuser", EmulatorPointedRawClient.generatePrivateKey), projectId, OverflowStrategy.backpressure, maximumInFlight)(sys) {
+  override val apiHost = "localhost"
+  override val apiPort = 8080
+  override val datastoreAPIEndPoint = s"http://localhost:8080"
+  override val googleAPIEndPoint = s"http://localhost:8080"
+
+  override lazy val requestQueue = Source.queue[(HttpRequest, Promise[HttpResponse])](maximumInFlight, overflowStrategy)
+    .via(poolClientFlow)
+    .toMat(Sink.foreach({
+      case ((Success(resp), p)) => p.success(resp)
+      case ((Failure(e), p))    => p.failure(e)
+    }))(Keep.left)
+    .run
 }

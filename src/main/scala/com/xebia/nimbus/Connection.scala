@@ -21,13 +21,18 @@
 
 package com.xebia.nimbus
 
+import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, ResponseEntity, Uri}
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import com.xebia.nimbus.datastore.api.OAuthApi
+import com.xebia.nimbus.datastore.api.OAuthApi.Credentials
+import com.xebia.nimbus.datastore.model.Key
 import spray.json.DefaultJsonProtocol
 
 import scala.concurrent.{Future, Promise}
@@ -84,7 +89,7 @@ trait Connection extends ConnectionSettings {
 
   def projectId: String
 
-  def accessToken: AccessToken
+  def credentials: Credentials
 
   implicit def system: ActorSystem
 
@@ -92,11 +97,15 @@ trait Connection extends ConnectionSettings {
 
   implicit def dispatcher = system.dispatcher
 
-  private lazy val poolClientFlow =
+  lazy val poolClientFlow =
     if (apiPort == 443) Http().cachedHostConnectionPoolHttps[Promise[HttpResponse]](apiHost, apiPort)
     else Http().cachedHostConnectionPool[Promise[HttpResponse]](apiHost, apiPort)
 
-  private lazy val requestQueue = Source.queue[(HttpRequest, Promise[HttpResponse])](maximumInFlight, overflowStrategy)
+  private def authenticationLayer = new OAuthApi.AccessTokenStage(() => OAuthApi.getAccessToken(credentials.email, credentials.privateKey, Instant.now))
+
+  lazy val requestQueue = Source.queue[(HttpRequest, Promise[HttpResponse])](maximumInFlight, overflowStrategy)
+    .via(Flow.fromGraph(authenticationLayer))
+    .mapAsync(16)(identity)
     .via(poolClientFlow)
     .toMat(Sink.foreach({
       case ((Success(resp), p)) => p.success(resp)
@@ -126,5 +135,9 @@ trait Connection extends ConnectionSettings {
         case Left(errorResponse) => throw new DataStoreException(errorResponse.error)
         case Right(response)     => response
       })
+  }
+
+  def close() = {
+    requestQueue.complete()
   }
 }

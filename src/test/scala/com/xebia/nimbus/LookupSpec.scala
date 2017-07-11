@@ -21,9 +21,8 @@
 
 package com.xebia.nimbus
 
+import com.xebia.nimbus.datastore.api.CommitApi.CommitMode
 import com.xebia.nimbus.datastore.model._
-import com.xebia.nimbus.datastore_api.CommitApi.CommitMode
-import com.xebia.nimbus.datastore_model._
 
 class LookupSpec extends WithClientSpec {
   def randomPostfix() = java.util.UUID.randomUUID().toString
@@ -31,8 +30,8 @@ class LookupSpec extends WithClientSpec {
   "Lookups" should {
     "should return found items for existing items" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.map(Insert.apply)
@@ -41,18 +40,18 @@ class LookupSpec extends WithClientSpec {
       for {
         transactionId <- client.beginTransaction()
         _ <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
-        lookup <- client.lookup(ExplicitConsistency(ReadConsistency.Strong), keys)
+        lookup <- client.lookup(ExplicitConsistency(ReadConsistency.Eventual), keys)
       } yield {
-        lookup.found.get.map(_.entity) shouldEqual entities
-        lookup.missing shouldBe None
-        lookup.deferred shouldBe None
+        lookup.found.get.map(_.entity) should contain theSameElementsAs entities
+        lookup.missing should not be defined
+        lookup.deferred should not be defined
       }
     }
 
     "should return missing items for non items" in {
       val entities = List(
-        RawEntity(Key.named(client.projectId, "Pet", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
-        RawEntity(Key.named(client.projectId, "Pet", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
+        RawEntity(Key.named(client.projectId, "$TestObject", "Dog" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Brown")))),
+        RawEntity(Key.named(client.projectId, "$TestObject", "Cat" + randomPostfix), Map("feet" -> Value(IntegerValue(4)), "color" -> Value(StringValue("Black"))))
       )
 
       val mutations = entities.take(1).map(Insert.apply)
@@ -63,9 +62,9 @@ class LookupSpec extends WithClientSpec {
         _ <- client.commit(Some(transactionId), mutations, CommitMode.Transactional)
         lookup <- client.lookup(ExplicitConsistency(ReadConsistency.Strong), keys)
       } yield {
-        lookup.found.get.map(_.entity).apply(0) shouldEqual entities(0)
-        lookup.missing.get.map(_.entity.key).apply(0) shouldEqual entities(1).key
-        lookup.deferred shouldBe None
+        lookup.found.get.map(_.entity) should contain(entities(0))
+        lookup.missing.get.map(_.entity.key) should contain(entities(1).key)
+        lookup.deferred should not be defined
       }
     }
   }

@@ -21,17 +21,17 @@
 
 package com.xebia.nimbus.datastore.api
 
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.headers.OAuth2BearerToken
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, Uri}
+import akka.http.scaladsl.model.{ HttpMethods, HttpRequest, RequestEntity, Uri }
 import com.xebia.nimbus.Connection
-import com.xebia.nimbus.datastore.api.QueryApi.Filter.{CompositeFilter, PropertyFilter}
-import com.xebia.nimbus.datastore.api.QueryApi.GlqQueryParameter._
-import com.xebia.nimbus.datastore.api.QueryApi._
-import com.xebia.nimbus.datastore.model.{EntityResult, PartitionId, ReadOption, Value}
+import com.xebia.nimbus.datastore.api.QueryApi.Filter.{ CompositeFilter, PropertyFilter }
+import com.xebia.nimbus.datastore.api.QueryApi.GlqQueryParameter.{ GlqCursorQueryParameter, GlqValueQueryParameter }
+import com.xebia.nimbus.datastore.api.QueryApi.{ CompositeOperator, EntityResultType, Filter, GlqQueryParameter, KindExpression, MoreResultsType, OrderDirection, Projection, PropertyOperator, PropertyOrder, PropertyReference, QueryRequest, QueryResponse, QueryResultBatch, RawGlqQuery, RawQuery }
+import com.xebia.nimbus.datastore.model.{ EntityResult, PartitionId, ReadOption, Value }
 import com.xebia.nimbus.datastore.serialization.Serializers
-import com.xebia.nimbus.datastore.model._
-import spray.json.{JsArray, JsObject, JsString, RootJsonFormat, _}
+import spray.json.{ JsArray, JsObject, JsString, RootJsonFormat, _ }
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -69,7 +69,7 @@ trait QueryApiFormatters extends Serializers {
     def write(c: Filter) = {
       c match {
         case CompositeFilter(op, filter) =>
-          JsObject("compositeFilter" -> JsObject("op" -> JsString(op.toString), "filter" -> JsArray(filter.map(_.toJson).toVector)))
+          JsObject("compositeFilter" -> JsObject("op" -> JsString(op.toString), "filters" -> JsArray(filter.map(_.toJson).toVector)))
         case PropertyFilter(property, op, value) =>
           JsObject("propertyFilter" -> JsObject("property" -> property.toJson, "op" -> JsString(op.toString), "value" -> value.toJson))
       }
@@ -129,7 +129,7 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
 
   object Filter {
 
-    case class CompositeFilter(op: CompositeOperator.Value, filter: Seq[Filter]) extends Filter
+    case class CompositeFilter(op: CompositeOperator.Value, filters: Seq[Filter]) extends Filter
 
     case class PropertyFilter(property: PropertyReference, op: PropertyOperator.Value, value: Value) extends Filter
 
@@ -148,9 +148,11 @@ object QueryApi extends QueryApiConversions with QueryApiFormatters {
   trait GlqQueryParameter
 
   object GlqQueryParameter {
+
     case class GlqValueQueryParameter(value: Value) extends GlqQueryParameter
 
     case class GlqCursorQueryParameter(cursor: String) extends GlqQueryParameter
+
   }
 
   case class RawGlqQuery(queryString: String, allowLiterals: Boolean, nameBindings: Map[String, GlqQueryParameter], positionalBindings: Seq[GlqQueryParameter])
@@ -171,7 +173,7 @@ trait QueryApi extends Connection {
     val uri: Uri = baseUri + ":runQuery"
     for {
       request <- Marshal(QueryRequest(partitionId, readOption, query, glqQuery)).to[RequestEntity].map(x => HttpRequest(HttpMethods.POST, uri, entity = x))
-      response <- singleRequest(request.addCredentials(OAuth2BearerToken(accessToken.accessToken)))
+      response <- singleRequest(request)
       entity <- handleErrorOrUnmarshal[QueryResponse](response)
     } yield {
       entity
